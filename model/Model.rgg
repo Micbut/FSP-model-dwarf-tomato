@@ -1,0 +1,498 @@
+import static rewrite_rules.*;
+import static parameters.*;
+import static parameters_derived.*;
+import static organs.*;
+import static plant_level.*;
+import static crop_level.*;
+import static photosynthesis.*;
+import static light.*;
+import static surroundings.*;
+import static initiation.*;
+import static auxiliary_tools_and_charts.*;
+import static updates.*;
+import static MTG_importer.*;
+
+import java.io.PrintWriter;
+import java.io.FileWriter;
+import de.grogra.pf.boot.Main;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import de.grogra.imp.net.*;
+import de.grogra.graph.object.sg.impl.*;
+
+static	int	nr_file = 0; // variable that count the position withing the chosen input folder - this allows to simulate in sequence different input scenarios.
+      
+
+public void init() {	
+	newInitiate();
+}
+
+/*
+* the save function writes the current RGG graph in the SecGraph resouerece "tmp"
+* and  enables the auto recreate to enshure that the nodes are always linked to the current compiled classes of the modules. 
+*/
+
+
+public void Dynamic_Model(){
+
+	dynamicModel	=	true;
+	if (time == 0){
+		
+		resetFilesDynamic(listOfFiles[nr_file].getName());
+		MTG	=	readMTGData(PATH_INPUT+PATH_DYNAMIC_IN+listOfFiles[nr_file].getName());
+		{ 
+			derive(); 
+			createMTG((* PlantBase *)); //Next steps would be to add identifier to work with multiple MTGs, to create a canopy of diverse plants
+		}	
+	}else{
+		
+		
+		develop();		
+	}
+	if (measure_light_below_canopy && (time == 0 || time % 15 == 0)) {
+		Light_sensors_below_canopy(listOfFiles[nr_file].getName());
+	}
+	derive();
+
+println("FORRRZZAA");
+	update_light();
+	update_crop();	
+	derive(); 
+	//if(!headless){
+	exportDynamicToFile(listOfFiles[nr_file].getName());
+	//}
+	
+	if(EXPORT_2D_IMAGE){
+		export2D_image(listOfFiles[nr_file].getName());
+	}
+	
+	if(EXPORT_3D_IMAGE){if(time<DURATION_DAYS){
+		export3DScene(PATH_OUTPUT+PATH_RENDERING_OUT+listOfFiles[nr_file].getName()+"step00"+time+".obj","obj");
+	}else{
+		export3DScene(PATH_OUTPUT+PATH_RENDERING_OUT+listOfFiles[nr_file].getName()+"step0"+time+".obj","obj");}
+	}	
+	if(time >= DURATION_DAYS){ 
+		println("End of simulation (harvest)!"); 
+		//if(!headless){
+			nr_file+=1;
+			if (nr_file>listOfFiles.length){
+				stop();
+			}else{
+				RESET_SCENE(); 
+				read_dynamic_input(readCSV(PATH_INPUT+PATH_DYNAMIC_IN+listOfFiles[nr_file].getName()));
+			}
+		//
+
+		newInitiate();
+	//}
+	}
+	
+}
+
+
+void RESET_SCENE()[ (* testTemp *) --> Node ==>> ;]
+
+
+public void Static_Model() {
+		
+	resetFilesStatic(listOfFiles[nr_file].getName());
+
+	if (nr_file>=listOfFiles.length){
+		stop();
+		println("No more files to simulate,save again to restart from the first file");
+	}else{
+		
+		RESET_SCENE(); 
+		read_static_input(readCSV(PATH_INPUT+PATH_STATIC_IN+listOfFiles[nr_file].getName()));
+		newInitiate();
+
+		if ( (headless == true && listOfFiles.length==1) || headless== false ){
+			if(repetitions == false){
+				MTG = readMTGData(listOfFiles[nr_file]);
+				{
+					derive(); 
+					createMTG((* PlantBase *)); //Next steps would be to add identifier to work with multiple MTGs, to create a canopy of diverse plants
+				}
+				derive();
+				update_light();
+				update_crop();
+				if (measure_light_below_canopy) {
+					Light_sensors_below_canopy(listOfFiles[nr_file].getName());
+				}
+				derive();				
+				exportStaticToFile(listOfFiles[nr_file].getName());
+				if (EXPORT_2D_IMAGE) {
+					export2D_image(listOfFiles[nr_file].getName());
+				}
+			}else{	
+				for (int i:0:1) {
+					reset();
+					MTG = readMTGData(listOfFiles[nr_file]);
+					{
+						derive(); 
+						createMTG((* PlantBase *)); //Next steps would be to add identifier to work with multiple MTGs, to create a canopy of diverse plants
+					}
+					derive();
+					update_light();
+					update_crop();
+					if (measure_light_below_canopy) {
+						Light_sensors_below_canopy(listOfFiles[nr_file].getName());
+					}
+					derive();
+					exportStaticToFile("repetition_"+i+"_"+listOfFiles[nr_file].getName());
+					if (EXPORT_2D_IMAGE) {
+						export2D_image("repetition_"+i+"_"+listOfFiles[nr_file].getName());
+					}
+				}		
+			}
+			nr_file+=1;
+		}else{
+			println("SA can be run just with one file in the static input folder");
+		}
+	}
+}
+
+/*
+public void Static_after_dynamic_Model(){
+
+
+	develop();		
+	
+	if (measure_light_below_canopy && (time == 0 || time % 15 == 0)) {
+		Light_sensors_below_canopy(listOfFiles[nr_file].getName());
+	}
+	derive();
+
+
+	update_light();
+	update_crop();	
+	derive(); 
+	if(!headless){exportDynamicToFile(listOfFiles[nr_file].getName());}
+	
+	if(EXPORT_2D_IMAGE){
+		export2D_image(listOfFiles[nr_file].getName());
+	}
+	
+	if(EXPORT_3D_IMAGE){if(time<DURATION_DAYS){
+		export3DScene(PATH_OUTPUT+PATH_RENDERING_OUT+"step00"+time+".ply","ply");
+	}else{
+		export3DScene(PATH_OUTPUT+PATH_RENDERING_OUT+"step0"+time+".ply","ply");}
+	}	
+
+	
+}
+*/
+public void Light_sensors(){
+
+	float [] heightSensor =  {0.061, 0.211, 0.361};
+	
+	for( float i : heightSensor){Light_sensor(i);};
+		
+}
+public void Light_sensor(float heightSensor)[
+/*	TO DO:
+	- FIX COLORING TILES
+	- FIX MULTIPLE EXPORTS
+	- MAKE THE NUMBER OF LAYER COMING FROM A ARRAY AND HAVING A FOR CYCLE MAKING THE JOB*/
+	
+	{
+		int j = 1;                                         
+
+	
+	}
+	//here light should be measured in a plane at 2 heights, over a surface
+	
+	==>>^
+	 	Translate( 0,T_SIZE_Y,0)
+	 	[Translate(WIDTH/2 - T_SIZE_X*NR_X/2,LENGTH1/2 - T_SIZE_Y*NR_Y/2 ,ROCKWOOL_HEIGHT+heightSensor+ 0.0001)
+	 	 { float x=0; float y=0; float z = ROCKWOOL_HEIGHT+heightSensor+ 0.0001;}
+
+			[for (1:NR_Y) (
+				[
+					for (1:NR_X) (
+										//		if (j % 2 != 0) (
+
+						it:TileSensor2 {it.initiate(j,x,y,z);}
+					//	)
+						Translate(T_SIZE_X,0,0)
+						{x+=T_SIZE_X;j++;}
+					)
+				]
+				Translate(0,T_SIZE_Y,0)
+				{y+=T_SIZE_Y;}
+			)]
+	 	]
+			;
+	
+		{derive(); 
+		update_light();}
+       	t:TileSensor2 ::>{t.calcLight();}	
+       	{
+       		
+       		println(mean((* v:TileSensor2*)[absorbedPARTilem2]) + " min "+(min((* v:TileSensor2*)[absorbedPARTilem2])/mean((* v:TileSensor2*)[absorbedPARTilem2]) - 1)*100 +" max "+(max((* v:TileSensor2*)[absorbedPARTilem2])/mean((* v:TileSensor2*)[absorbedPARTilem2]) - 1)*100 );
+
+
+       	}
+
+       	{
+			derive();
+			exportSensorsToFile();
+		}
+		t:TileSensor2==>;	
+	//{println(LENGTH_EXPERIMENTAL);}
+
+
+]
+public void Light_sensors_below_canopy(String file_name)[
+
+	{
+		int j = 1;
+		float heightSensor1 = 0;//0.061;
+		T_SIZE_X = ROCKWOOL_WIDTH_LENGTH;
+		T_SIZE_Y = DISTANCE_PLANTS_IN_ROW - ROCKWOOL_WIDTH_LENGTH -0.001;
+	}
+	//here light should be measured in a plane at 2 heights, over a surface
+	 cb:CropBase==>>
+	 cb	
+	 
+	 { float x=0; float y=0; float z = ROCKWOOL_HEIGHT+ 0.0001;}
+
+	 [ Translate(-T_SIZE_X/2,DISTANCE_ROWS/2 + T_SIZE_Y/2 -(DISTANCE_ROWS- ROCKWOOL_WIDTH_LENGTH)/2 ,0)
+	 	 	
+			
+			[	Translate(  WIDTH/2 - DISTANCE_PLANTS_IN_ROW*(NR_PLANTS-1)/2 - DISTANCE_PLANTS_IN_ROW/2, LENGTH1/2 - (NR_ROWS-1)*DISTANCE_ROWS/2 ,0)Translate( 0,0,z)
+				for (int line=1; line<=NR_ROWS*2-1; line++) (
+					[
+						for (int pos=1; pos<=NR_PLANTS*2-1; pos++) (							Translate(DISTANCE_PLANTS_IN_ROW/2,0,0)
+
+							[
+								Translate( 0,-ROCKWOOL_WIDTH_LENGTH/2,0)
+								{x+=DISTANCE_PLANTS_IN_ROW/2;}
+								
+								if(pos % 2 != 0 &&  line % 2 == 0 )(
+									if(pos==NR_PLANTS*2-1)({T_SIZE_X = T_SIZE_X = ROCKWOOL_WIDTH_LENGTH;})else({T_SIZE_X = ROCKWOOL_WIDTH_LENGTH+(DISTANCE_PLANTS_IN_ROW - ROCKWOOL_WIDTH_LENGTH);})
+									it:TileSensor {it.initiate(j,x,y,z,cb);j++;})
+
+								if(pos % 2 == 0 &&  line % 2 != 0 )( {T_SIZE_X = ROCKWOOL_WIDTH_LENGTH;} RH(90)Translate(-T_SIZE_X/2-T_SIZE_Y/2,-T_SIZE_X/2+T_SIZE_Y/2,0) it:TileSensor {it.initiate(j,x,y,z,cb);j++;})
+							]
+	
+						)	
+					]
+					Translate(0,DISTANCE_ROWS/2,0)
+					{y+=DISTANCE_ROWS/2;}
+
+				)
+			]
+	]
+			;
+		{derive(); 
+		update_light();}
+       	t:TileSensor ::>{t.calcLight();}
+
+
+    	{
+			derive();
+			exportSensorsBelowCanopyToFile(file_name); //this need to be update to include 2 heights
+		}
+		t:TileSensor==>;
+
+]
+//==============================================================================
+// EXECUTED WHEN THE MODEL IS RUN HEADLESS
+//==============================================================================
+protected void startup()
+{
+	super.startup();
+	if (Main.getProperty("headless") != null) {
+		runLater(null);
+	}
+}
+ 
+protected void run(Object info)
+{
+	reset();
+	init();
+	reset();
+	println("input is " + Main.getArg(0));
+	println("output is " + Main.getArg(1));
+	inputFile = Main.getArg(0);
+	outputFile = Main.getArg(1);
+	runHeadless();
+   System.exit(0);
+}
+
+
+//protected void startup()
+//{
+//	super.startup();
+//	HttpResponse resp = HttpResponse.get(workbench());
+//	if(resp != null){
+//		runLater(resp);
+//	}
+//}
+
+static String inputFile;
+static String outputFile;
+ 
+//protected void run(Object info)
+//{
+//	HttpResponse resp = (HttpResponse)info;
+	//reset();
+	//init();
+	//reset();
+//	inputFile = resp.getRequest().getQuery().split("&")[1];
+//	outputFile = resp.getRequest().getQuery().split("&")[2];
+//	println("input is " + inputFile);
+//	println("output is " + outputFile);
+//	runHeadless();
+//	resp.send(true); // Remember to send something back to the client in order to properly close the project. (even if it is empty)
+//	closeWorkbench();
+//}
+
+ 
+// main method for the headless version
+protected void runHeadless()
+{
+	// set the output file, where the computed values should be stored
+	PrintWriter out = new PrintWriter(new FileWriter(outputFile, false));	// headless
+	updateParameters();	// use inputs from the csv file
+	if (!isStatic) {
+
+		out.println("Plant number,  cumulative_PAR_absorbed_per_plant_umol, cumulative_carbon_assimilation_plant_umol, cumulative_gross_assimmilates_plant_mg,cumulative_maintenance_demand_plant_mg,cumulative_assimilates_plant_mg,dry_biomass_fruits_mg,dry_biomass_plant_above_ground_mg");		
+		dynamicModel	=	true;
+		
+		for (apply(DURATION_DAYS)) {
+			
+			if (time == 0) {
+				resetFilesDynamic(listOfFiles[nr_file].getName());
+				MTG	=	readMTGData(PATH_INPUT+PATH_DYNAMIC_IN+listOfFiles[nr_file].getName());
+				{ 
+					derive(); 
+					createMTG((* PlantBase *)); //Next steps would be to add identifier to work with multiple MTGs, to create a canopy of diverse plants
+				}	
+			} else {
+				develop();
+			}
+				derive();
+			
+				update_light();
+				update_crop();	
+				derive(); 
+
+			exportDynamicToFile(listOfFiles[nr_file].getName());
+
+		
+		}	
+		
+
+			[			
+				p:PlantBase ::> {
+			out.println(p[plant_number]+","+p[cumulative_PAR_absorbed_per_plant_umol]+","+p[cumulative_carbon_assimilation_plant_umol]+","+p[cumulative_gross_assimmilates_plant_mg]+","+p[cumulative_maintenance_demand_plant_mg]+","+p[cumulative_assimilates_plant_mg]+","+p[dry_biomass_fruits_mg]+","+p[dry_biomass_plant_above_ground_mg]);
+				}
+			]
+			
+			
+			
+	} else {
+		Static_Model();
+		  out.println("Plant number,         PAR absorbed plant all (umol/s),           PAR absorbed leaves (umol/s),                      CO2 assimilation (umol/s),                     CO2 assimilation leaves (umol/s),              gross_assimmilates_mg,          gross_assimmilates_just_leaves_mg,           maintenance_demand_mg,    assimilates_mg,      assimilates_if_just_leaves_mg");
+	[		
+		p:PlantBase ::> {
+			out.println(p[plant_number]+","+p[PAR_absorbed_per_plant_all_second_umol]+","+p[PAR_absorbed_per_plant_leaves_second_umol]+","+p[carbon_assimilation_plant_second_umol]+","+p[carbon_assimilation_plant_leaves_second_umol]+","+p[gross_assimmilates_mg]+","+p[gross_assimmilates_just_leaves_mg]+","+p[maintenance_demand_mg]+","+p[assimilates_mg]+","+p[assimilates_if_just_leaves_mg]);
+		
+		}
+	]	
+	}
+      
+	out.flush();
+	out.close();	
+}
+
+// read input parameters from a csv file
+protected void readCSV_SA(String input) throws FileNotFoundException, IOException
+{
+	BufferedReader br = null;
+	String line = "";
+	String cvsSplitBy = ",";	// use comma as separator
+	
+	br = new BufferedReader(new FileReader(input));
+	
+	line = br.readLine();
+	
+	while (line != null) {
+		
+		String[] par = line.split(cvsSplitBy);
+		
+		if (par[0].equals("SA_factor_BRANCH_INCLINATION_MEAN")) {
+			SA_factor_BRANCH_INCLINATION_MEAN = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_Internode_length_mean")) {
+			SA_factor_Internode_length_mean = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_genericLengthPetiolules")) {
+			SA_factor_genericLengthPetiolules = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_segmentLengthTotal")) {
+			SA_factor_segmentLengthTotal = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_area_blades")) {
+			SA_factor_area_blades = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_petiole_length")) {
+			SA_factor_petiole_length = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_POSITION_MAX_WIDTH_MEAN")) {
+			SA_factor_POSITION_MAX_WIDTH_MEAN = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_K1_MEAN")) {
+			SA_factor_K1_MEAN = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_K2_MEAN")) {
+			SA_factor_K2_MEAN = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_P1_MEAN")) {
+			SA_factor_P1_MEAN = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_P2_MEAN")) {
+			SA_factor_P2_MEAN = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_B1_MEAN")) {
+			SA_factor_B1_MEAN = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_B2_MEAN")) {
+			SA_factor_B2_MEAN = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_BLADES_LW_RATIO")) {
+			SA_factor_BLADES_LW_RATIO = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_GENERIC_PETIOLULE_ANGLE_D_MEAN")) {
+			SA_factor_GENERIC_PETIOLULE_ANGLE_D_MEAN = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_LEAF_CURVATURE")) {
+			SA_factor_LEAF_CURVATURE = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_CURVATURE_BLADES_MEAN")) {
+			SA_factor_CURVATURE_BLADES_MEAN = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_LEAF_ANGLE_MEAN")) {
+			SA_factor_LEAF_ANGLE_MEAN = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_Leaf_counterClockWiseOrientation_mean")) {
+			SA_factor_Leaf_counterClockWiseOrientation_mean = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_density")) {
+			SA_factor_density = Double.parseDouble(par[1]);
+		} else if (par[0].equals("SA_factor_temperature")) {
+			SA_factor_temperature = Double.parseDouble(par[1]);
+		}
+		
+		line = br.readLine();
+	}
+}
+
+// update parameter changes based on the input values from csv files
+void updateParameters()
+{
+	if (headless) {
+		// read values of parameters from the input csv file 
+		readCSV_SA(inputFile);
+	}
+}
+
+/*
+public void save() {
+	SecGraphRef	tmp = new SecGraphRef("tmp",first((*RGGRoot*)));
+	tmp.setAutoRecreate(true);
+}
+/*
+* replaces all A nodes  with clones of the content of the secGraph resource "tmp". 
+*//*
+public void load() {
+	SecGraphRef	tmp = new SecGraphRef("tmp");
+	[RGGRoot ==> tmp.cloneGraph();]
+}
+*/

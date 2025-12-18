@@ -1,0 +1,52 @@
+import static parameters.*;
+import static plant_level.*;
+import static parameters_derived.*;
+import static light.*;
+import static auxiliary_tools_and_charts.*;
+import static photosynthesis.*;
+
+import de.grogra.gpuflux.imp3d.spectral.IrregularSpectralCurve; 
+import de.grogra.gpuflux.imp3d.shading.ChannelSPD;
+import de.grogra.gpuflux.scene.experiment.Measurement;
+import java.util.*;
+import de.grogra.xl.util.FloatList;
+import de.grogra.xl.util.IntList;
+
+// module that contains field-wide variables
+module CropBase extends Null {
+	float	age_in_degree_days_dd;				// crop age (degree days)
+	float	age_in_days_d;						// crop age (days)
+	double	avg_PAR_absorbed_per_plant_second_umol;
+	double	sd_PAR_absorbed_per_plant_second_umol;
+	double	avg_carbon_assimilation_plant_daily_umol;
+	double	sd_carbon_assimilation_plant_daily_umol;
+	double	avg_gross_assimmilates_plant_daily_mg;
+	double	avg_maintenance_demand_plant_daily_mg;
+	double	avg_dry_biomass_plant_with_roots_plant_daly_mg;
+	double	avg_cumulative_PAR_absorbed_per_plant_umol;
+	double	avg_cumulative_gross_assimmilates_plant_mg;
+	double	avg_cumulative_assimilates_plant_mg;
+	
+	// initiation of the plant
+	void update(){
+		age_in_degree_days_dd	=	mean((* pb:PlantBase*)[age_in_degree_days_dd]);
+		age_in_days_d			=	mean((* pb:PlantBase*)[age_in_days_d]);
+		
+		avg_PAR_absorbed_per_plant_second_umol			=	mean((* PlantBase *)[PAR_absorbed_per_plant_all_second_umol]);
+		sd_PAR_absorbed_per_plant_second_umol			=	Math.sqrt(sum( Math.pow((* PlantBase *)[PAR_absorbed_per_plant_all_second_umol] - avg_PAR_absorbed_per_plant_second_umol ,2 )) / (count((* PlantBase *))-1)) ;
+		
+		avg_carbon_assimilation_plant_daily_umol		=	mean((* PlantBase *)[carbon_assimilation_plant_daily_umol]);
+		sd_carbon_assimilation_plant_daily_umol			=	Math.sqrt(sum( Math.pow((* PlantBase *)[carbon_assimilation_plant_daily_umol] - avg_carbon_assimilation_plant_daily_umol,2  )) / (count((* PlantBase *))-1)) ;
+		
+		avg_gross_assimmilates_plant_daily_mg			=	mean((* PlantBase *)[gross_assimmilates_mg]);
+		avg_maintenance_demand_plant_daily_mg			=	mean((* PlantBase *)[maintenance_demand_mg]);
+		avg_dry_biomass_plant_with_roots_plant_daly_mg	=	mean((* PlantBase *)[dry_biomass_plant_with_roots_mg]);
+			
+		avg_cumulative_PAR_absorbed_per_plant_umol		=	mean((* PlantBase *)[cumulative_PAR_absorbed_per_plant_umol]);
+		avg_cumulative_gross_assimmilates_plant_mg		=	mean((* PlantBase *)[cumulative_gross_assimmilates_plant_mg]);
+		avg_cumulative_assimilates_plant_mg				=	mean((* PlantBase *)[cumulative_assimilates_plant_mg]);
+		println("avg_PAR_absorbed_per_plant_second_umol "+ avg_PAR_absorbed_per_plant_second_umol);
+		println("day is "+age_in_days_d +" and thermal time is "+age_in_degree_days_dd+"	BASE_TEMPERATURE: "+BASE_TEMPERATURE+"	##################################"+" time:" + time);
+
+	}
+}

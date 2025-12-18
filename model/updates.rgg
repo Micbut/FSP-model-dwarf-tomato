@@ -1,0 +1,130 @@
+import static rewrite_rules.*;
+import static parameters.*;
+import static parameters_derived.*;
+import static organs.*;
+import static plant_level.*;
+import static crop_level.*;
+import static photosynthesis.*;
+import static light.*;
+import static surroundings.*;
+import static initiation.*;
+import static auxiliary_tools_and_charts.*;
+
+protected static void update_light(){
+	//lmGPU.setSeed(irandom(1,100000));
+	lmGPU.compute();
+	derive();
+}
+
+protected static void update_crop()[
+	{	if(dynamicModel){
+			AVERAGE_TEMP=(+Daily_average_temperatures[time][1]);
+	}}
+	//Update age of all organs
+	o:Organ::> {
+		if(dynamicModel){o.calcAge();}			// calculate all organ ages
+	}
+
+	pb:PlantBase ::> {
+		if(dynamicModel){
+			pb.calcAge();
+		}
+	}
+	go:GrowingOrgan ::> {
+		if(dynamicModel && time==0){
+		go.calcBiomass();
+		go.calcDimensions();
+		}
+	}	
+
+	pb:PlantBase ::> {
+		if(dynamicModel && time==0){
+			pb.updateBiomass();
+		}
+	}
+	r:Root::>{r.calcRootStartBiomass();} //this happens just at t=1
+
+	
+	go:GrowingOrgan::> {
+		go.calcLight();						// calculate  for all growing organs
+		go.calcPhotosynthesis();			// calculate photosynthesis for all growing organs
+		go.calcMaintenanceRespiration();	
+	}
+	
+
+	fr:Fruits::>{
+		if(dynamicModel){
+			fr.calcNrFruits();
+		}
+	}		
+	//Calculate sink strength, light interception, photosynthesis of all growing organs
+	go:GrowingOrgan::>{
+		if(dynamicModel){
+			go.calcSinkStrengthAboveground();
+		}
+	}
+	
+	pb:PlantBase ::> {
+		if(dynamicModel){
+			pb.calcSinkStrengthAboveground();
+		}
+	}
+
+	
+
+		
+	//Calculate source and sink strength for the whole plant
+	pb:PlantBase ::> {
+		if(dynamicModel){
+			pb.calcSinkStrength();	
+		}
+		pb.calcSourceStrength();
+	}
+	
+	//Calculate dry_biomass_growth_mg of growing organ based on the amount of assimilates_mg available 
+	go:GrowingOrgan ::> {
+		if(dynamicModel){
+			go.calcAssimilateAllocation();	// calculate organ dry_biomass_growth_mg
+
+		}
+	}
+	
+		
+	//Update plant-level variables using info from individual organs
+	pb:PlantBase ::> {
+		pb.calcBuffers();
+	}
+	
+		//Calculate dry_biomass_growth_mg of growing organ based on the amount of assimilates_mg available 
+	go:GrowingOrgan ::> {
+		if(dynamicModel){
+			go.calcAvaiableBufferAllocation();
+			go.calcBiomass();
+			go.calcDimensions();
+	}}
+		
+			f:Fruits ::> {
+		if(dynamicModel){
+			f.update_fruit_biomass_because_harvest();
+			}}
+	
+	
+	
+	
+	//Update plant-level variables using info from individual organs
+	pb:PlantBase ::> {
+		pb.updateAbsorbedRadiation();
+		pb.updateBiomass();
+		pb.updateSurfaceArea();
+	}
+
+	cb:CropBase::>{
+		cb.update();
+	}
+	
+	{
+		if(dynamicModel){
+			time++;
+		}
+	}
+]

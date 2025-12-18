@@ -1,0 +1,96 @@
+// important
+// - the internode below the cotyledon has rank 0
+// - the internode below the cotyledon is phytomer 0
+// - the first internode on a branch is considered to have rank 1
+
+/******************************************************************************
+CONSTANTS, SETTINGS & FIXED PARAMETERS 
+******************************************************************************/
+
+//static	String	PATH_INPUT 							=	"C:/Users/Marloes/ONEDRI~1/MSCTHE~2/R/Model/input/";	// PATH of the model folder
+static	String	PATH_INPUT 								=	getWD()+"input/";										// PATH of the model folder
+static	String	PATH_STATIC_IN							=	"static_input/";
+static	String	PATH_DYNAMIC_IN	 						=	"dynamic_input/";
+static	String	PATH_LIGHT_SPECTRUM_FILE				=	"light_spectrum/";
+static	String	PATH_LIGHT_DISTRIBUTION_FILE			=	"light_emission_pattern/";
+static	String	PATH_DAILY_AVERAGE_TEMPERATURES_FILE	=	"temperature/";
+
+static	String	LIGHT_SENSOR_POSITION_FILE				=	"light_sensor.csv";										// File with the positions of the light sensors
+
+//static	String	PATH_OUTPUT							=	"C:/Users/Marloes/ONEDRI~1/MSCTHE~2/R/Model/output/";	// PATH of the model folder
+static	String	PATH_OUTPUT								=	getWD()+"output/";										// PATH of the model folder
+static	String	PATH_RENDERING_OUT 						=	"rendering_output/";
+static	String	PATH_SENSOR_OUT 						=	"sensor_output/";
+static	String	PATH_DYNAMIC_OUT_CROP					=	"dynamic_output/crop/";
+static	String	PATH_DYNAMIC_OUT_PLANT					=	"dynamic_output/plant/";
+static	String	PATH_DYNAMIC_OUT_ORGAN					=	"dynamic_output/organ/";
+static	String	PATH_STATIC_OUT_CROP					=	"static_output/crop/";
+static	String	PATH_STATIC_OUT_PLANT					=	"static_output/plant/";
+static	String	PATH_STATIC_OUT_ORGAN					=	"static_output/organ/";
+
+static	String	SENSORS_EXPORT							=	"sensors_export";										// File with the output values of the light sensors
+static	String	SENSORS_BELOW_CANOPY_OUTPUT				=	"sensors_export_below_canopy";							// File with the output values of the light sensors
+static	String	MTG_EXPORT								=	"MTG.csv";												// STATIC: File with the output values of the plants
+
+static	boolean isStatic								=	false;
+static 	boolean headless 								=	true;
+
+static 	boolean repetitions 							=	false;
+
+static 	boolean measure_light_below_canopy				=	false;
+static	boolean EXPORT_2D_IMAGE							=	false;
+static 	boolean EXPORT_3D_IMAGE 						=	false;
+
+static 	boolean ROOM 									=	true;
+static 	boolean LAMPS									=	true;
+
+static	boolean LIGHT_SENSOR							=	false;
+static 	boolean VISIBLE_RAYS 							=	false;
+static	boolean LIGHT_SENSOR_IN_LAYERS					=	false;
+
+static	int		DURATION_DAYS							=	80;
+static	boolean	RED_TOMATOES_REMOVED					=	false;
+
+/*ROOM*/
+static	float	LENGTH1									=	1.2;		//(m);
+static	float	WIDTH									=	1.2;		//(m);
+static	float	HEIGHT	;												//(m);
+
+/*PLANT DISPOSITION*/
+static	int		NR_PLANTS								=	3;			// For this exeriment ideal number is 2. number of plants in a row
+static	int 	NR_ROWS									=	3;			// For this exeriment ideal number is 3. number of rows
+static	int 	NR_BORDER_ROWS							=	2;			// For this exeriment ideal number is 2. number of border rows
+static	int 	NR_BORDER_PLANTS_IN_ROW					=	2;			// For this exeriment ideal number is 2. number of border rows
+static	float	ROCKWOOL_WIDTH_LENGTH					=	0.1;		//(m);
+static	float	ROCKWOOL_HEIGHT							=	0.065;		//(m);
+
+/*LIGHT HARDWARE*/
+static	float	LED_FIXTURE_LENGTH 						=	LENGTH1;	//(m); length of one single LED module containing several LEDs
+static	float	LED_SPOT_DISTANCE						=	0.4;		//(m);
+static	float	DISTANCE_BETWEEN_LAMPS					=	0.4;		//(m);
+static	float	LAMP_COVER_HEIGHT						=	0.01;		//(m);
+static	float	LAMP_COVER_WIDTH						=	0.1;		//(m);
+
+/*CLIMATE*/	
+static	double	PHOTOPERIOD								=	16;			//(h); hours of daylight
+
+/*Time units*/
+const	float	NUMBER_OF_TIME_UNITS_DURING_A_DAY		=	24; 		// is used to convert daily values (photosynthesis) to the Reference base time units.
+
+/*Physics universal values*/
+static	float	MOLAR_MASS_CO2							=	44.01;
+
+/*Light tiles Sensors*/
+static 	float 	T_SIZE_X								=	0.02;		// (m) width of tile
+static 	float 	T_SIZE_Y								=	0.02;		// (m) length of tile
+static 	int 	TILE_LAYER								=	12;			// you can see/hide the sensor in the interface by controlling layer 12
+
+/*Light Model*/
+const	int		RAYS_GPU								=	21474000;	//	good ;	// max is 2147482999
+const	int		RAYS_CPU								=	10000000;	// Temporary values //
+const	int		RAY_DEPTH								=	10;			// good 10
+	
+const	int		SET_SEED								=	0;			// 
+
+static	Phong PLANT_RENDERING_SHADER					=	new Phong().(setDiffuse(new RGBColor(0.26, 0.64, 0.21)));
+static	Phong RIPE_TOMATO_RENDERING_SHADER				=	new Phong().(setDiffuse(new RGBColor(1,0.0 , 0.0)));

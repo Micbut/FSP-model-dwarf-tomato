@@ -1,0 +1,619 @@
+import static parameters.*;
+import static MTG_importer.*;
+import static auxiliary_tools_and_charts.*;
+
+import java.io.PrintWriter;
+import java.io.FileWriter;
+import de.grogra.pf.boot.Main;
+import java.io.File;
+import de.grogra.xl.util.FloatList;
+
+static	boolean dynamicModel;
+
+static	int		time;  								// global time counter
+static	int		harvest;							// duration, i.e. harvest/removal time after emergence (in days)
+static	double	groundArea;							// total ground area_m2_m2_m2 per species       
+
+static	double	DENSITY ;							// population density (plants / m2)
+static	long	TOTAL_PLANTS;						// total number of plants
+static	float	LAMP_FIXTURE_HEIGHT					=	HEIGHT-LAMP_COVER_HEIGHT;
+static	float	NR_LAMPS							=	Math.round(WIDTH/DISTANCE_BETWEEN_LAMPS);
+static	float	NR_SPOT								=	Math.round(LED_FIXTURE_LENGTH/LED_SPOT_DISTANCE);
+
+/*Experimental Area*/
+static	double	DISTANCE_PLANTS_IN_ROW;				//(m); distance between plants in a row //0.165 low denst 
+static	double	DISTANCE_ROWS;						//(m); distance between rows
+
+static	float	LENGTH_EXPERIMENTAL;
+static	float	WIDTH_EXPERIMENTAL;
+
+static	int		NR_X;
+static	int		NR_Y;
+
+static	double	LIGHT_POWER;	//nonsense value, temporary
+
+{
+DISTANCE_PLANTS_IN_ROW				=	1/Math.sqrt(DENSITY);		//(m); distance between plants in a row //0.165 low denst 
+DISTANCE_ROWS						=	1/Math.sqrt(DENSITY);		//(m); distance between rows
+}
+
+{
+if (DENSITY == 35){ LIGHT_POWER = 45; HEIGHT = 0.735; }
+if (DENSITY == 50){ LIGHT_POWER = 43.8; HEIGHT = 0.735; }
+if (DENSITY == 65){ LIGHT_POWER = 41.8; HEIGHT = 0.7; }
+if (DENSITY == 80){ LIGHT_POWER = 40.6; HEIGHT = 0.69; }
+if (DENSITY == 95){ LIGHT_POWER = 40.2; HEIGHT = 0.69; }
+
+//maggie case
+
+if (DENSITY == 18.5){ LIGHT_POWER = 43.1; HEIGHT = 0.735; }
+if (DENSITY == 100){ LIGHT_POWER = 35.49; HEIGHT = 0.69; }
+
+
+
+	LENGTH_EXPERIMENTAL					=	(( DISTANCE_ROWS          - ROCKWOOL_WIDTH_LENGTH)*(NR_ROWS  +1) + (ROCKWOOL_WIDTH_LENGTH)*NR_ROWS);		
+	println(LENGTH_EXPERIMENTAL);
+	WIDTH_EXPERIMENTAL					=	(( DISTANCE_PLANTS_IN_ROW - ROCKWOOL_WIDTH_LENGTH)*(NR_PLANTS+1) + (ROCKWOOL_WIDTH_LENGTH)*NR_PLANTS);
+	NR_X								=	(int) Math.round(WIDTH_EXPERIMENTAL/T_SIZE_X); // number of tiles in x direction
+	NR_Y								=	(int) Math.round(LENGTH_EXPERIMENTAL/T_SIZE_Y); // number of tiles in y direction
+};
+
+module	testTemp; 										// dummy module to keep simulation running
+static	int counterOfImages;
+
+/******************************************************************************
+PARAMETERS FROM INPUT FILE
+******************************************************************************/
+static	float	treshold_fall;
+/*parameters SHARED BETWEEN DYNAMIC AND STATIC at the moment*/
+/*Growth parameters*/
+
+static	float	COUNTER_CLOCKWISE_ORIENTATION_LEAF_MEAN;		
+static	float	COUNTER_CLOCKWISE_ORIENTATION_LEAF_STD;
+
+static	float	BRANCH_INCLINATION_MEAN;
+static 	float	BRANCH_INCLINATION_STD;
+
+/*DETERMINATE GROWTH PARAMETERS*/
+
+static 	float	PHYTOMER_APPEARANCE_RATE_MAIN_STEM_FACTOR_1;
+static 	float	PHYTOMER_APPEARANCE_RATE_MAIN_STEM_FACTOR_2;
+static 	float	PHYTOMER_APPEARANCE_RATE_MAIN_STEM_FACTOR_3;
+
+static 	float	PHYTOMER_APPEARANCE_RATE_SIDE_BRANCHES_FACTOR_1;
+static 	float	PHYTOMER_APPEARANCE_RATE_SIDE_BRANCHES_FACTOR_2;
+
+static	int		MAX_NR_INTERNODES_MAIN_STEM_MEAN;
+static	int		MAX_NR_INTERNODES_MAIN_STEM_STD;
+
+static	int		MAX_NR_INTERNODES_FIRST_BRANCH_ORDER_MEAN;		
+static	int		MAX_NR_INTERNODES_FIRST_BRANCH_ORDER_STD;	
+
+/*Plant Architectural parameters*/
+
+//INTERNODE 
+
+static	double	DRY_BIOMASS_POTENTIAL_MAX_INTERNODE_MG_MEAN;
+static	double	DRY_BIOMASS_POTENTIAL_MAX_INTERNODE_MG_STD;
+
+static	double	AGE_MAXIMUM_GROWTH_INTERNODE_DD_MEAN;
+static	double	AGE_MAXIMUM_GROWTH_INTERNODE_DD_STD;
+
+static	double	GROWTH_DURATION_INTERNODE_DD_MEAN;
+static	double	GROWTH_DURATION_INTERNODE_DD_STD;
+
+static	double	SPECIFIC_INTERNODE_LENGTH_MM_MG_MEAN;
+static	double	SPECIFIC_INTERNODE_LENGTH_MM_MG_STD;
+
+static	double	LENGTH_WIDTH_RATIO_MEAN;
+static	double	LENGTH_WIDTH_RATIO_STD;
+
+static	double	MAX_WIDTH_INTERNODE_M_MEAN;
+static	double	MAX_WIDTH_INTERNODE_M_STD;
+
+static	double	SPECIFIC_INTERNODE_LENGTH_FACTOR_1;
+static	double	SPECIFIC_INTERNODE_LENGTH_FACTOR_2;
+static	double	SPECIFIC_INTERNODE_LENGTH_THIN_FACTOR_1;
+static	double	SPECIFIC_INTERNODE_LENGTH_THIN_FACTOR_2;
+static	double	SPECIFIC_INTERNODE_WIDTH_FACTOR_1;
+static	double	SPECIFIC_INTERNODE_WIDTH_FACTOR_2;
+
+static	float	INTERNODE_TILT_D_MEAN;
+static	float	INTERNODE_TILT_D_STD;
+
+//blades
+static	float	POSITION_MAX_WIDTH_MEAN;
+static	float	POSITION_MAX_WIDTH_STD;
+
+static	float	K1_MEAN;
+static	float	K1_STD;									
+
+static	float	K2_MEAN;
+static	float	K2_STD;	
+
+static	float	P1_MEAN;
+static	float	P1_STD;									
+
+static	float	P2_MEAN;
+static	float	P2_STD;	
+
+static	float	B1_MEAN;
+static	float	B1_STD;									
+
+static	float	B2_MEAN;
+static	float	B2_STD;	
+
+//LEAF
+
+static	float	LEAF_ANGLE_MEAN;
+static	float	LEAF_ANGLE_STD;
+
+static	float	LEAF_CURVATURE_MEAN;
+static	float	LEAF_CURVATURE_STD;
+
+static	float	GENERIC_PETIOLULE_ANGLE_D_MEAN;
+static	float	GENERIC_PETIOLULE_ANGLE_D_STD;
+
+static	float	CURVATURE_BLADES_MEAN;
+static	float	CURVATURE_BLADES_STD;
+
+static	float	SPECIFIC_PETIOLE_LENGTH_FACTOR_1;
+static	float	SPECIFIC_PETIOLE_LENGTH_FACTOR_2;
+static	float	SPECIFIC_PETIOLE_WIDTH_FACTOR_1;
+static	float	SPECIFIC_PETIOLE_WIDTH_FACTOR_2;
+static	float	SLA_FACTOR_1;
+static	float	SLA_FACTOR_2;
+static	float	SLA_MM_MG;
+
+//COTYLEDONS
+
+static	float	BLADES_LW_RATIO_COTYLEDONS;
+static	float	FRACTION_PETIOLE_COTYLEDONS;
+static	float	FRACTION_BLADES_COTYLEDONS;
+
+//FIRST PAIR - ON BRANCHES
+
+static	float BLADES_LW_RATIO_FIRST_LEAVES;
+
+static	float [] PROPORTION_SEGMENTS_FIRST_LEAVES;
+static	float [] PROPORTION_PETIOLULES_FIRST_LEAVES;
+static	float [] PROPORTION_blades_FIRST_LEAVES;	
+
+static	float	FRACTION_PETIOLE_FIRST_LEAVES;
+static	float	FRACTION_PETIOLULE_FIRST_LEAVES;
+static	float	FRACTION_BLADES_FIRST_LEAVES;
+static	float	DRY_BIOMASS_POTENTIAL_MAX_FIRST_LEAVES_MG;
+
+//LEAF RANK 2,3
+
+static	float BLADES_LW_RATIO_MID_AND_LAST_LEAVES;
+
+static	float [] PROPORTION_SEGMENTS_MID_LEAVES;
+static	float [] PROPORTION_PETIOLULES_MID_LEAVES;
+static	float [] PROPORTION_blades_MID_LEAVES;	
+
+static	float	FRACTION_PETIOLE_MID_AND_LAST_LEAVES;
+static	float	FRACTION_SEGMENT_MID_AND_LAST_LEAVES;
+static	float	FRACTION_PETIOLULE_MID_AND_LAST_LEAVES;
+static	float	FRACTION_BLADES_MID_AND_LAST_LEAVES;
+
+static	float	AGE_MAXIMUM_GROWTH_MID_AND_LAST_LEAVES_DD;
+static	float	GROWTH_DURATION_MID_AND_LAST_LEAVES_DD;
+
+// LEAF RANK 4 AND HIGHER
+
+static	float [] PROPORTION_SEGMENTS_LAST_LEAVES;
+static	float [] PROPORTION_PETIOLULES_LAST_LEAVES;
+static	float [] PROPORTION_blades_LAST_LEAVES;	
+
+static	float	DRY_BIOMASS_POTENTIAL_MAX_MID_AND_LAST_LEAVES_MG;
+
+//TRUSS
+
+static	float	DRY_BIOMASS_POTENTIAL_MAX_TRUSS_MG;
+static	float	AGE_MAXIMUM_GROWTH_TRUSS_DD;
+static	float	GROWTH_DURATION_TRUSS_DD;
+
+//fruit
+
+static	float	FIRST_FRUIT_APPEARANCE_DELAY;
+static	float	DELAY_FLOWER_APPEARANCE;
+static	float	RIPENING_DD;
+static	float	DRY_BIOMASS_POTENTIAL_MAX_FRUIY_MG_MEAN;
+static	float	AGE_MAXIMUM_GROWTH_FRUIT_DD_MEAN;
+static	float	GROWTH_DURATION_FRUIT_DD_MEAN;
+static	int		FRUITS_PER_TRUSS;
+static	float	DRY_WEIGHT_TO_BIOMASS_FACOTR_1;
+static	float	DRY_WEIGHT_TO_BIOMASS_FACOTR_2;
+
+//ROOT
+
+static	float	ROOT_FRACTION;
+
+/*GROWTH & DEVELOPMENT*/
+
+static	float	BASE_TEMPERATURE;
+static	float	AGE_AT_BRANCHING;
+
+
+static	float	C_Q_10_MAINTENANCE_RESPIRATION;
+static	float	F;
+static	float	RELATIVE_GROWTH_RATE_LAST_5_DAYS;
+
+static	float	MAINTENANCE_RESPIRATION_LEAF;
+static	float	MAINTENANCE_RESPIRATION_STEM;
+static	float	MAINTENANCE_RESPIRATION_FRUIT;
+static	float	MAINTENANCE_RESPIRATION_ROOT;
+
+static 	float	CONVERSION_FACTOR_CO2_TO_CHO;
+
+static	float 	GROWTH_RESPIRATION_LEAF;
+static	float 	GROWTH_RESPIRATION_STEM;
+static	float 	GROWTH_RESPIRATION_FRUIT;
+static	float 	GROWTH_RESPIRATION_ROOT;
+
+static	float 	MAX_BUFFER_PERCENTAGE;
+
+
+/*PHOTSYNTHESIS PARAMETERS*/
+
+static	float	QUANTUM_EFFICIENCY_MEAN;
+static	float	QUANTUM_EFFICIENCY_STD;
+
+static	float	ASAT;
+static	float	ASAT_OFFSET;	
+
+static	float	CONVEXITY_MEAN;
+static	float	CONVEXITY_STD;
+
+static	float	MIN_IN_BUFFER_PHOTOINIBITION;
+static	float	MAX_IN_BUFFER_PHOTOINIBITION;
+
+static	float	NON_LEAF_PHOTOSYNTHESIS_FACTOR;
+
+/*OPTICAL PROPERTIES  - all the values are Temporary set to zero*/
+
+static	float[]	WAVELENGTHS;
+static	float[]	AMPLITUDES;
+
+//Top of the leaf
+static	float[]	LEAF_TOP_SPD;
+static	float[] LEAF_TOP_SPT;
+
+//Bottom of the leaf
+static	float[] LEAF_BOTTOM_SPD;
+static	float[] LEAF_BOTTOM_SPT;
+
+//Stem
+static	float[] INTERNODE_SPD;
+static	float[] INTERNODE_SPT;
+
+//Ripen fruit
+static	float[] FRUIT_RIPEN_SPD;
+static	float[] FRUIT_RIPEN_SPT;
+
+//Unripen fruit
+static	float[] FRUIT_UNRIPEN_SPD;
+static	float[] FRUIT_UNRIPEN_SPT;
+
+//TILE_SENSOR_TOP:
+static	float[]	TILE_SENSOR_TOP_SPD;
+static	float[]	TILE_SENSOR_TOP_SPT;	
+	
+//TILE_SENSOR_BOTTOM: 
+static	float[]	TILE_SENSOR_BOTTOM_SPD;
+static	float[]	TILE_SENSOR_BOTTOM_SPT;	
+	
+//GENERIC_OBJECT: walls/floor
+static	float[]	CUBE_SPD;
+static	float[]	CUBE_SPT;	
+
+//CEILING
+static	float[]	CEILING_SPD;
+static	float[]	CEILING_SPT;	
+
+static	float[]	FLOOR_SPD;
+static	float[]	FLOOR_SPT;	
+
+static	float[]	WALL_SPD;
+static	float[]	WALL_SPT;	
+
+
+//here the matrix containing the position of the light sensors is defined
+static String [][] CAMERA_XYZ;	
+
+// Dynamic dry_biomass_growth_mg input
+
+//
+static String[][] MTG;
+static	float	AVERAGE_TEMP;			//(C); average temperature in Celsius
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/**Sensitivity analysis factors*/
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////							
+static	float	SA_factor_density									=	1;	// both static and dynamic
+static	float	SA_factor_temperature								=	1;	// dynamic (in the static, temperature influence just the assimilate calculation over the entire day - since temperature affects maintencance respiration)
+
+// development - common between static and dynamic
+static	float	SA_factor_BRANCH_INCLINATION_MEAN					=	1;	// both static and dynamic
+ 
+//INTERNODES
+//biomass - just dynamic - or if static is needed to star a dynamic
+static	float	SA_factor_Internode_dry_biomass_potential_max_mg	=	1; // just dynamic - or if static is needed to star a dynamic
+static	float	SA_factor_SPECIFIC_INTERNODE_LENGTH_MM_MG_MEAN		=	1; // just dynamic - or if static is needed to star a dynamic
+ 
+//geometry - just static AND just if MTG_AREA = TRUE
+static	float	SA_factor_Internode_length_mean						=	1;	// just static 
+//LEAVES
+//biomass - just dynamic - or if static is needed to star a dynamic
+static	float	SA_factor_Leaf_dry_biomass_potential_max_mg			=	1;	// just dynamic - or if static is needed to star a dynamic
+static	float	SA_factor_segmenth_specific_length_mm_mg			=	1;	// just dynamic - or if static is needed to star a dynamic
+static	float	SA_factor_SLA_MM2_MG_MEAN							=	1;	// just dynamic - or if static is needed to star a dynamic	
+ 
+//geometry - just static AND just if MTG_AREA = TRUE
+static	float	SA_factor_genericLengthPetiolules					=	1;	//Just static
+static	float	SA_factor_segmentLengthTotal						=	1;	//Just static
+static	float	SA_factor_area_blades								=	1;	//Just static
+static	float	SA_factor_petiole_length							=	1;	//Just static
+
+//geometry - common between static and dynamic	
+static	float	SA_factor_POSITION_MAX_WIDTH_MEAN					=	1;	// both static and dynamic					
+static	float	SA_factor_K1_MEAN									=	1;	// both static and dynamic	
+static	float	SA_factor_K2_MEAN									=	1;	// both static and dynamic	
+static	float	SA_factor_P1_MEAN									=	1;	// both static and dynamic	
+static	float	SA_factor_P2_MEAN									=	1;	// both static and dynamic	
+static	float	SA_factor_B1_MEAN									=	1;	// both static and dynamic	
+static	float	SA_factor_B2_MEAN									=	1;	// both static and dynamic	
+ 
+static	float	SA_factor_BLADES_LW_RATIO							=	1;	// both static and dynamic	
+static	float	SA_factor_GENERIC_PETIOLULE_ANGLE_D_MEAN			=	1;	// both static and dynamic					
+static	float	SA_factor_LEAF_CURVATURE							=	1;	// both static and dynamic	
+static	float	SA_factor_CURVATURE_BLADES_MEAN						=	1;	// both static and dynamic	
+static	float	SA_factor_LEAF_ANGLE_MEAN							=	1;	// both static and dynamic	
+static	float	SA_factor_Leaf_counterClockWiseOrientation_mean		=	1;	// both static and dynamic	
+ 
+//TRUSS	
+static	float	SA_factor_fruitNr									=	1;	// just dynamic 				
+static	float	SA_factor_fruitDiameter								=	1;	// just dynamic
+
+static	File folder;
+static	File[] listOfFiles ;
+
+static	File folder_light_distribution;
+static	File[] listOfFiles_light_distribution ;
+
+static	File folder_temperatures;
+static	File[] listOfFiles_temperatures ;
+
+static	File folder_light_spectrum;
+static	File[] listOfFiles_spectrum;
+
+static double[][] LIGHT_DISTRIBUTION;
+static String [][] LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES;
+static float [][] LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES;
+
+static double [][]Daily_average_temperatures;
+
+{
+    folder_light_distribution = new File(PATH_INPUT+PATH_LIGHT_DISTRIBUTION_FILE);
+    listOfFiles_light_distribution = folder_light_distribution.listFiles();
+	LIGHT_DISTRIBUTION =	convertToDoubleMatrix(readCSV(PATH_INPUT+PATH_LIGHT_DISTRIBUTION_FILE+listOfFiles_light_distribution[0].getName()));
+
+	//here the matrix containing the light spectrum is defined (HOWEVER AS STRINGS)
+	folder_light_spectrum = new File(PATH_INPUT+PATH_LIGHT_SPECTRUM_FILE);
+    listOfFiles_spectrum = folder_light_spectrum.listFiles();
+	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES =	readCSV(PATH_INPUT+PATH_LIGHT_SPECTRUM_FILE+listOfFiles_spectrum[0].getName());
+
+	//here the matrix containing the light spectrum is defined
+	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES=	light_spectrum_and_optical_properties();
+
+    if (isStatic==false){
+    	folder = new File(PATH_INPUT+PATH_DYNAMIC_IN);
+    	listOfFiles = folder.listFiles();
+    	read_dynamic_input(readCSV(PATH_INPUT+PATH_DYNAMIC_IN+listOfFiles[0].getName()));
+    	    
+    	folder_temperatures = new File(PATH_INPUT+PATH_DAILY_AVERAGE_TEMPERATURES_FILE);
+    	listOfFiles_temperatures = folder_temperatures.listFiles();
+    	Daily_average_temperatures =	convertToDoubleMatrix(readCSV(PATH_INPUT+PATH_DAILY_AVERAGE_TEMPERATURES_FILE+listOfFiles_temperatures[0].getName()));
+
+	}else if (isStatic==true){
+		folder = new File(PATH_INPUT+PATH_STATIC_IN);
+		listOfFiles = folder.listFiles();
+		read_static_input(readCSV(PATH_INPUT+PATH_STATIC_IN+listOfFiles[0].getName()));
+	}    	 
+	
+
+
+}
+static 	float[]	p1	;
+static 	float[]	p2	;
+static 	float[]	p3	;
+static 	float[]	p4	;
+static 	float[]	p5	;
+static 	float[]	p6	;
+static 	float[]	p7	;
+static 	float[]	p8	;
+static 	float[]	p9	;
+static 	float[]	p10	;
+static 	float[]	p11	;
+static 	float[]	p12	;
+static 	float[]	p13	;
+static 	float[]	p14	;
+static 	float[]	p15	;
+static 	float[]	p16	;
+static 	float[]	p17	;
+static 	float[]	p18	;
+static 	float[]	p19	;
+static 	float[]	p20	;
+static 	float[]	p21	;
+static 	float[]	p22	;
+static 	float[]	p23	;
+static 	float[]	p24	;
+static 	float[]	p25	;
+static 	float[]	p26	;
+static 	float[]	p27	;
+static 	float[]	p28	;
+static 	float[]	p29	;
+static 	float[]	p30	;
+static 	float[]	p31	;
+static 	float[]	p32	;
+static 	float[]	p33	;
+static 	float[]	p34	;
+static 	float[]	p35	;
+static 	float[]	p36	;
+static 	float[]	p37	;
+static 	float[]	p38	;
+static 	float[]	p39	;
+static 	float[]	p40	;
+static 	float[]	p41	;
+static 	float[]	p42	;
+static 	float[]	p43	;
+static 	float[]	p44	;
+static 	float[]	p45	;
+static 	float[]	p46	;
+static 	float[]	p47	;
+static 	float[]	p48	;
+static 	float[]	p49	;
+static 	float[]	p50	;
+static 	float[]	p51	;
+static 	float[]	p52	;
+static 	float[]	p53	;
+static 	float[]	p54	;
+static 	float[]	p55	;
+static 	float[]	p56	;
+static 	float[]	p57	;
+static 	float[]	p58	;
+static 	float[]	p59	;
+static 	float[]	p60	;
+static 	float[]	p61	;
+static 	float[]	p1R	;
+static 	float[]	p2R	;
+static 	float[]	p3R	;
+static 	float[]	p4R	;
+static 	float[]	p5R	;
+static 	float[]	p6R	;
+static 	float[]	p7R	;
+static 	float[]	p8R	;
+static 	float[]	p9R	;
+static 	float[]	p10R	;
+static 	float[]	p11R	;
+static 	float[]	p12R	;
+static 	float[]	p13R	;
+static 	float[]	p14R	;
+static 	float[]	p15R	;
+static 	float[]	p16R	;
+static 	float[]	p17R	;
+static 	float[]	p18R	;
+static 	float[]	p19R	;
+static 	float[]	p20R	;
+static 	float[]	p21R	;
+static 	float[]	p22R	;
+static 	float[]	p23R	;
+static 	float[]	p24R	;
+static 	float[]	p25R	;
+static 	float[]	p26R	;
+static 	float[]	p27R;
+static 	float[]	p28R	;
+static 	float[]	p29R	;
+static 	float[]	p30R	;
+static 	float[]	p31R	;
+static 	float[]	p32R	;
+static 	float[]	p33R	;
+static 	float[]	p34R	;
+static 	float[]	p35R	;
+static 	float[]	p36R	;
+static 	float[]	p37R	;
+static 	float[]	p38R	;
+static 	float[]	p39R	;
+static 	float[]	p40R	;
+static 	float[]	p41R	;
+static 	float[]	p42R	;
+static 	float[]	p43R	;
+static 	float[]	p44R	;
+static 	float[]	p45R	;
+static 	float[]	p46R	;
+static 	float[]	p47R	;
+static 	float[]	p48R	;
+static 	float[]	p49R	;
+static 	float[]	p50R	;
+static 	float[]	p51R	;
+static 	float[]	p52R	;
+static 	float[]	p53R	;
+static 	float[]	p54R	;
+static 	float[]	p55R	;
+static 	float[]	p56R	;
+static 	float[]	p57R	;
+static 	float[]	p58R	;
+static 	float[]	p59R;
+static 	float[]	p60R	;
+static 	float[]	p61R	;
+static 	float[]	lnorm1	;
+static 	float[]	lnorm2	;
+static 	float[]	lnorm3	;
+static 	float[]	lnorm4	;
+static 	float[]	lnorm5	;
+static 	float[]	lnorm6	;
+static 	float[]	lnorm7	;
+static 	float[]	lnorm8	;
+static 	float[]	lnorm9	;
+static 	float[]	lnorm10	;
+static 	float[]	lnorm11	;
+static 	float[]	lnorm12	;
+static 	float[]	lnorm13	;
+static 	float[]	lnorm14	;
+static 	float[]	lnorm15	;
+static 	float[]	lnorm16	;
+static 	float[]	lnorm17	;
+static 	float[]	lnorm18	;
+static 	float[]	lnorm19	;
+static 	float[]	lnorm20	;
+static 	float[]	lnorm21	;
+static 	float[]	lnorm22	;
+static 	float[]	lnorm23	;
+static 	float[]	lnorm24	;
+static 	float[]	lnorm25	;
+static 	float[]	lnorm26	;
+static 	float[]	lnorm27	;
+static 	float[]	lnorm28	;
+static 	float[]	lnorm29	;
+static 	float[]	lnorm30	;
+static 	float[]	lnorm31	;
+static 	float[]	lnorm32	;
+static 	float[]	lnorm33	;
+static 	float[]	lnorm34	;
+static 	float[]	lnorm35	;
+static 	float[]	lnorm36	;
+static 	float[]	lnorm37	;
+static 	float[]	lnorm38	;
+static 	float[]	lnorm39	;
+static 	float[]	lnorm40	;
+static 	float[]	lnorm41	;
+static 	float[]	lnorm42	;
+static 	float[]	lnorm43	;
+static 	float[]	lnorm44	;
+static 	float[]	lnorm45	;
+static 	float[]	lnorm46	;
+static 	float[]	lnorm47	;
+static 	float[]	lnorm48	;
+static 	float[]	lnorm49	;
+static 	float[]	lnorm50	;
+static 	float[]	lnorm51	;
+static 	float[]	lnorm52	;
+static 	float[]	lnorm53	;
+static 	float[]	lnorm54	;
+static 	float[]	lnorm55	;
+static 	float[]	lnorm56	;
+static 	float[]	lnorm57	;
+static 	float[]	lnorm58	;
+static 	float[]	lnorm59	;
+static 	float[]	lnorm60	;
+static 	float[]	lnorm61	;
+
+
+
+
+static MeshNode cotyledon_mesh;
+static MeshNode firt_leaves_mesh;
+static MeshNode other_leaves_mesh;
+static FloatList vertexDataLeaflet;

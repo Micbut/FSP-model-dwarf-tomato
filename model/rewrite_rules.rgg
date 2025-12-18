@@ -1,0 +1,109 @@
+import static parameters.*;
+import static parameters_derived.*;
+import static organs.*;
+import static MTG_importer.*;
+import static plant_level.*;
+import static crop_level.*;
+import static photosynthesis.*;
+import static auxiliary_tools_and_charts.*;
+
+static void develop() [
+
+	//Internodes, leaves, apical meristem and side meristems formation for the main stem
+		m:Meristem, ((m[rank]<=normal(10,0) && m[order]==0  && m[age_in_degree_days_dd]>=organAppearanceMainStem(m[rank], -PHYTOMER_APPEARANCE_RATE_MAIN_STEM_FACTOR_1 , PHYTOMER_APPEARANCE_RATE_MAIN_STEM_FACTOR_2 , -PHYTOMER_APPEARANCE_RATE_MAIN_STEM_FACTOR_3) && m[isFruit]==false)) ==> 
+	{
+		float intermdiate_tilt			=	normal(INTERNODE_TILT_D_MEAN, INTERNODE_TILT_D_STD);
+		float random_tilt_orientation 	=	random(0,360);
+	}		
+	
+
+	RH(random_tilt_orientation)
+	RU(intermdiate_tilt)
+	i2:Internode 		
+	RU(-intermdiate_tilt)
+	RH(-random_tilt_orientation)
+	
+	[RL(normal(BRANCH_INCLINATION_MEAN,BRANCH_INCLINATION_STD))]   
+	[l:Leaf]
+	RH(normal(COUNTER_CLOCKWISE_ORIENTATION_LEAF_MEAN, COUNTER_CLOCKWISE_ORIENTATION_LEAF_STD)) 
+	m
+	{
+		i2.initiate(m);
+		l.initiate(m);
+		m.increment();
+
+	};
+	{derive();}
+
+	////////////////////////////////////
+	m:Meristem, (m[has_already_auxiliary_bud] == false && m[has_already_truss_bud]==false  && m[order]==0 && (m[rank] ==2||m[rank]  ==3||m[rank]  ==7) )==> 
+
+
+	if(m[rank] ==2)(
+		[RU(normal(BRANCH_INCLINATION_MEAN,BRANCH_INCLINATION_STD))m2:Meristem ] 
+		[RU(-normal(BRANCH_INCLINATION_MEAN,BRANCH_INCLINATION_STD))m3:Meristem ] 
+	{
+		m[has_already_auxiliary_bud]=true;
+		m2.initiateAxillary(m);
+		m3.initiateAxillary(m);
+	}
+		)else(
+		
+			[RH(225-COUNTER_CLOCKWISE_ORIENTATION_LEAF_MEAN) RU(normal(BRANCH_INCLINATION_MEAN,BRANCH_INCLINATION_STD))m2:Meristem] 
+	m
+	{
+		m[has_already_auxiliary_bud]=true;
+		m2.initiateAxillary(m);
+	}
+	)
+	;
+	
+	{derive();}
+
+		//Internodes, leaves, apical meristem and side meristems formation for the side branches 
+	m:Meristem, (m[has_already_truss_bud] == false )==> 
+	[RL(normal(BRANCH_INCLINATION_MEAN,BRANCH_INCLINATION_STD))m2:Meristem] 
+	m
+	{		
+		m[has_already_truss_bud] = true;
+		m2.initiateTruss(m);
+	};
+	
+		////////////////////////////////////
+	
+	//Internodes, leaves, apical meristem and side meristems formation for the side branches 
+	m:Meristem, (m[pb][age_in_degree_days_dd]>=AGE_AT_BRANCHING &&   m[rank]<= MAX_NR_INTERNODES_FIRST_BRANCH_ORDER_MEAN && m[order]==1 && m[age_in_degree_days_dd]>=organAppearanceSideBranch(m[rank] , PHYTOMER_APPEARANCE_RATE_SIDE_BRANCHES_FACTOR_1 , -PHYTOMER_APPEARANCE_RATE_SIDE_BRANCHES_FACTOR_2) && m[isFruit]==false) ==> 
+	i:Internode 		
+	[	
+		if (m[rank] % 2 == 0)(
+			RH(90) RU(90)  
+		)else(
+			RH(-90) RU(-90)  
+		)
+		[RG RU(180)l:Leaf]
+	]
+	 m
+	{
+		i.initiate(m);
+		l.initiate(m);
+		m.increment();
+	};
+	
+	//Truss formation from apical and side meristems
+	// check rank numbering
+	m:Meristem, (m[age_in_degree_days_dd]>=FIRST_FRUIT_APPEARANCE_DELAY &&((m[rank]>= 6 && m[order]==0) || (m[rank] > MAX_NR_INTERNODES_FIRST_BRANCH_ORDER_MEAN && m[order]==1)) && m[isFruit]==true) ==>
+	
+	[t:Truss]
+	[f:Fruits]
+	{
+		t.initiate(m);
+		f.initiate(m); 
+	};
+		
+	//Leaf decay
+	l:Leaf, (l[age_in_degree_days_dd]>400 && l[PAR_incoming_per_organ_umolm2s]<treshold_fall) ==>;
+	
+	
+	// ignore              
+	testTemp ==> testTemp;
+]

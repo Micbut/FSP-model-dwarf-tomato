@@ -1,0 +1,986 @@
+<?xml version="1.0" encoding="UTF-8"?><graph xmlns="http://grogra.de/xmlpersistence" xmlns:gx="http://grogra.de/xmlpersistence">
+ <node root="MetaGraph" id="1" type="de.grogra.graph.impl.Node">
+  <data gx:name="extentIndex" gx:value="7"/>
+  <node id="397497" type="Model" edges="+">
+   <data gx:name="extentIndex" gx:value="7"/>
+   <object gx:name="initialTurtleState" color="14" length="100.0" diameter="0.1" tropism="0.0" parameter="0.0" carbon="0.0" heartwood="0.0" internodeCount="0"/>
+  </node>
+  <node id="397498" type="auxiliary_tools_and_charts" edges="+">
+   <data gx:name="extentIndex" gx:value="7"/>
+   <object gx:name="initialTurtleState" color="14" length="100.0" diameter="0.1" tropism="0.0" parameter="0.0" carbon="0.0" heartwood="0.0" internodeCount="0"/>
+  </node>
+  <node id="397499" type="parameters" edges="+">
+   <data gx:name="extentIndex" gx:value="7"/>
+   <object gx:name="initialTurtleState" color="14" length="100.0" diameter="0.1" tropism="0.0" parameter="0.0" carbon="0.0" heartwood="0.0" internodeCount="0"/>
+  </node>
+  <node id="397500" type="parameters_derived" edges="+">
+   <data gx:name="extentIndex" gx:value="7"/>
+   <object gx:name="initialTurtleState" color="14" length="100.0" diameter="0.1" tropism="0.0" parameter="0.0" carbon="0.0" heartwood="0.0" internodeCount="0"/>
+  </node>
+  <node id="397501" type="initiation" edges="+">
+   <data gx:name="extentIndex" gx:value="7"/>
+   <object gx:name="initialTurtleState" color="14" length="100.0" diameter="0.1" tropism="0.0" parameter="0.0" carbon="0.0" heartwood="0.0" internodeCount="0"/>
+  </node>
+  <node id="397502" type="light" edges="+">
+   <data gx:name="extentIndex" gx:value="7"/>
+   <object gx:name="initialTurtleState" color="14" length="100.0" diameter="0.1" tropism="0.0" parameter="0.0" carbon="0.0" heartwood="0.0" internodeCount="0"/>
+  </node>
+  <node id="397503" type="surroundings" edges="+">
+   <data gx:name="extentIndex" gx:value="7"/>
+   <object gx:name="initialTurtleState" color="14" length="100.0" diameter="0.1" tropism="0.0" parameter="0.0" carbon="0.0" heartwood="0.0" internodeCount="0"/>
+  </node>
+  <node id="397504" type="organs" edges="+">
+   <data gx:name="extentIndex" gx:value="7"/>
+   <object gx:name="initialTurtleState" color="14" length="100.0" diameter="0.1" tropism="0.0" parameter="0.0" carbon="0.0" heartwood="0.0" internodeCount="0"/>
+  </node>
+  <node id="397505" type="plant_level" edges="+">
+   <data gx:name="extentIndex" gx:value="7"/>
+   <object gx:name="initialTurtleState" color="14" length="100.0" diameter="0.1" tropism="0.0" parameter="0.0" carbon="0.0" heartwood="0.0" internodeCount="0"/>
+  </node>
+  <node id="397506" type="crop_level" edges="+">
+   <data gx:name="extentIndex" gx:value="7"/>
+   <object gx:name="initialTurtleState" color="14" length="100.0" diameter="0.1" tropism="0.0" parameter="0.0" carbon="0.0" heartwood="0.0" internodeCount="0"/>
+  </node>
+  <node id="397507" type="photosynthesis" edges="+">
+   <data gx:name="extentIndex" gx:value="7"/>
+   <object gx:name="initialTurtleState" color="14" length="100.0" diameter="0.1" tropism="0.0" parameter="0.0" carbon="0.0" heartwood="0.0" internodeCount="0"/>
+  </node>
+  <node id="397508" type="MTG_importer" edges="+">
+   <data gx:name="extentIndex" gx:value="7"/>
+   <object gx:name="initialTurtleState" color="14" length="100.0" diameter="0.1" tropism="0.0" parameter="0.0" carbon="0.0" heartwood="0.0" internodeCount="0"/>
+  </node>
+  <node id="397509" type="rewrite_rules" edges="+">
+   <data gx:name="extentIndex" gx:value="7"/>
+   <object gx:name="initialTurtleState" color="14" length="100.0" diameter="0.1" tropism="0.0" parameter="0.0" carbon="0.0" heartwood="0.0" internodeCount="0"/>
+  </node>
+  <node id="397510" type="updates" edges="+">
+   <data gx:name="extentIndex" gx:value="7"/>
+   <object gx:name="initialTurtleState" color="14" length="100.0" diameter="0.1" tropism="0.0" parameter="0.0" carbon="0.0" heartwood="0.0" internodeCount="0"/>
+  </node>
+ </node>
+ <node root="MainGraph" id="0" type="de.grogra.graph.impl.Node">
+  <data gx:name="extentIndex" gx:value="7"/>
+  <node id="397511" type="de.grogra.rgg.RGGRoot" edges="+">
+   <node id="397514" type="parameters_derived$testTemp" edges="-">
+    <node id="397515" type="surroundings$Walls" edges="+">
+     <node id="397516" type="surroundings$RoomFloor" edges="-">
+      <node id="397517" type="surroundings$Ceiling" edges="-"/>
+     </node>
+    </node>
+    <node id="397518" type="surroundings$GridLamp" edges="+"/>
+    <node id="397519" type="crop_level$CropBase" edges="-">
+     <node id="397520" type="de.grogra.turtle.Translate" edges="+">
+      <data gx:name="translateX" gx:value="0.43096918"/>
+      <data gx:name="translateY" gx:value="0.43096918"/>
+      <node id="397521" type="de.grogra.turtle.Translate" edges="-">
+       <data gx:name="translateY" gx:value="0.05"/>
+       <node id="397522" type="surroundings$RockwoolBlock" edges="-">
+        <node id="397523" type="de.grogra.turtle.Translate" edges="-">
+         <data gx:name="translateY" gx:value="-0.05"/>
+         <data gx:name="translateZ" gx:value="0.065"/>
+         <node id="397524" type="de.grogra.turtle.RH" edges="-">
+          <data gx:name="angle" gx:value="263.1484"/>
+          <node id="397525" type="plant_level$PlantBase" edges="-">
+           <data gx:name="row" gx:value="1"/>
+           <data gx:name="pos" gx:value="1"/>
+           <data gx:name="plant_number" gx:value="1"/>
+           <node id="397526" type="de.grogra.turtle.RH" edges="-">
+            <node id="397527" type="de.grogra.imp3d.objects.Sphere" edges="-">
+             <data gx:name="radius" gx:value="0.005"/>
+            </node>
+           </node>
+          </node>
+         </node>
+        </node>
+       </node>
+      </node>
+     </node>
+     <node id="397528" type="de.grogra.turtle.Translate" edges="+">
+      <data gx:name="translateX" gx:value="0.16903085"/>
+      <node id="397529" type="de.grogra.turtle.Translate" edges="+">
+       <data gx:name="translateX" gx:value="0.43096918"/>
+       <data gx:name="translateY" gx:value="0.43096918"/>
+       <node id="397530" type="de.grogra.turtle.Translate" edges="-">
+        <data gx:name="translateY" gx:value="0.05"/>
+        <node id="397531" type="surroundings$RockwoolBlock" edges="-">
+         <node id="397532" type="de.grogra.turtle.Translate" edges="-">
+          <data gx:name="translateY" gx:value="-0.05"/>
+          <data gx:name="translateZ" gx:value="0.065"/>
+          <node id="397533" type="de.grogra.turtle.RH" edges="-">
+           <data gx:name="angle" gx:value="86.5931"/>
+           <node id="397534" type="plant_level$PlantBase" edges="-">
+            <data gx:name="row" gx:value="1"/>
+            <data gx:name="pos" gx:value="2"/>
+            <data gx:name="plant_number" gx:value="2"/>
+            <node id="397535" type="de.grogra.turtle.RH" edges="-">
+             <node id="397536" type="de.grogra.imp3d.objects.Sphere" edges="-">
+              <data gx:name="radius" gx:value="0.005"/>
+             </node>
+            </node>
+           </node>
+          </node>
+         </node>
+        </node>
+       </node>
+      </node>
+      <node id="397537" type="de.grogra.turtle.Translate" edges="-">
+       <data gx:name="translateX" gx:value="0.16903085"/>
+       <node id="397538" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateX" gx:value="0.43096918"/>
+        <data gx:name="translateY" gx:value="0.43096918"/>
+        <node id="397539" type="de.grogra.turtle.Translate" edges="-">
+         <data gx:name="translateY" gx:value="0.05"/>
+         <node id="397540" type="surroundings$RockwoolBlock" edges="-">
+          <node id="397541" type="de.grogra.turtle.Translate" edges="-">
+           <data gx:name="translateY" gx:value="-0.05"/>
+           <data gx:name="translateZ" gx:value="0.065"/>
+           <node id="397542" type="de.grogra.turtle.RH" edges="-">
+            <data gx:name="angle" gx:value="229.47026"/>
+            <node id="397543" type="plant_level$PlantBase" edges="-">
+             <data gx:name="row" gx:value="1"/>
+             <data gx:name="pos" gx:value="3"/>
+             <data gx:name="plant_number" gx:value="3"/>
+             <node id="397544" type="de.grogra.turtle.RH" edges="-">
+              <node id="397545" type="de.grogra.imp3d.objects.Sphere" edges="-">
+               <data gx:name="radius" gx:value="0.005"/>
+              </node>
+             </node>
+            </node>
+           </node>
+          </node>
+         </node>
+        </node>
+       </node>
+       <node id="397546" type="de.grogra.turtle.Translate" edges="-">
+        <data gx:name="translateX" gx:value="0.16903085"/>
+       </node>
+      </node>
+     </node>
+     <node id="397547" type="de.grogra.turtle.Translate" edges="+">
+      <data gx:name="translateY" gx:value="0.16903085"/>
+      <node id="397548" type="de.grogra.turtle.Translate" edges="+">
+       <data gx:name="translateX" gx:value="0.43096918"/>
+       <data gx:name="translateY" gx:value="0.43096918"/>
+       <node id="397549" type="de.grogra.turtle.Translate" edges="-">
+        <data gx:name="translateY" gx:value="0.05"/>
+        <node id="397550" type="surroundings$RockwoolBlock" edges="-">
+         <node id="397551" type="de.grogra.turtle.Translate" edges="-">
+          <data gx:name="translateY" gx:value="-0.05"/>
+          <data gx:name="translateZ" gx:value="0.065"/>
+          <node id="397552" type="de.grogra.turtle.RH" edges="-">
+           <data gx:name="angle" gx:value="198.15732"/>
+           <node id="397553" type="plant_level$PlantBase" edges="-">
+            <data gx:name="row" gx:value="2"/>
+            <data gx:name="pos" gx:value="1"/>
+            <data gx:name="plant_number" gx:value="4"/>
+            <node id="397554" type="de.grogra.turtle.RH" edges="-">
+             <node id="397555" type="de.grogra.imp3d.objects.Sphere" edges="-">
+              <data gx:name="radius" gx:value="0.005"/>
+             </node>
+            </node>
+           </node>
+          </node>
+         </node>
+        </node>
+       </node>
+      </node>
+      <node id="397556" type="de.grogra.turtle.Translate" edges="+">
+       <data gx:name="translateX" gx:value="0.16903085"/>
+       <node id="397557" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateX" gx:value="0.43096918"/>
+        <data gx:name="translateY" gx:value="0.43096918"/>
+        <node id="397558" type="de.grogra.turtle.Translate" edges="-">
+         <data gx:name="translateY" gx:value="0.05"/>
+         <node id="397559" type="surroundings$RockwoolBlock" edges="-">
+          <node id="397560" type="de.grogra.turtle.Translate" edges="-">
+           <data gx:name="translateY" gx:value="-0.05"/>
+           <data gx:name="translateZ" gx:value="0.065"/>
+           <node id="397561" type="de.grogra.turtle.RH" edges="-">
+            <data gx:name="angle" gx:value="215.1163"/>
+            <node id="397562" type="plant_level$PlantBase" edges="-">
+             <data gx:name="row" gx:value="2"/>
+             <data gx:name="pos" gx:value="2"/>
+             <data gx:name="plant_number" gx:value="5"/>
+             <node id="397563" type="de.grogra.turtle.RH" edges="-">
+              <node id="397564" type="de.grogra.imp3d.objects.Sphere" edges="-">
+               <data gx:name="radius" gx:value="0.005"/>
+              </node>
+             </node>
+            </node>
+           </node>
+          </node>
+         </node>
+        </node>
+       </node>
+       <node id="397565" type="de.grogra.turtle.Translate" edges="-">
+        <data gx:name="translateX" gx:value="0.16903085"/>
+        <node id="397566" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateX" gx:value="0.43096918"/>
+         <data gx:name="translateY" gx:value="0.43096918"/>
+         <node id="397567" type="de.grogra.turtle.Translate" edges="-">
+          <data gx:name="translateY" gx:value="0.05"/>
+          <node id="397568" type="surroundings$RockwoolBlock" edges="-">
+           <node id="397569" type="de.grogra.turtle.Translate" edges="-">
+            <data gx:name="translateY" gx:value="-0.05"/>
+            <data gx:name="translateZ" gx:value="0.065"/>
+            <node id="397570" type="de.grogra.turtle.RH" edges="-">
+             <data gx:name="angle" gx:value="119.958626"/>
+             <node id="397571" type="plant_level$PlantBase" edges="-">
+              <data gx:name="row" gx:value="2"/>
+              <data gx:name="pos" gx:value="3"/>
+              <data gx:name="plant_number" gx:value="6"/>
+              <node id="397572" type="de.grogra.turtle.RH" edges="-">
+               <node id="397573" type="de.grogra.imp3d.objects.Sphere" edges="-">
+                <data gx:name="radius" gx:value="0.005"/>
+               </node>
+              </node>
+             </node>
+            </node>
+           </node>
+          </node>
+         </node>
+        </node>
+        <node id="397574" type="de.grogra.turtle.Translate" edges="-">
+         <data gx:name="translateX" gx:value="0.16903085"/>
+        </node>
+       </node>
+      </node>
+      <node id="397575" type="de.grogra.turtle.Translate" edges="-">
+       <data gx:name="translateY" gx:value="0.16903085"/>
+       <node id="397576" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateX" gx:value="0.43096918"/>
+        <data gx:name="translateY" gx:value="0.43096918"/>
+        <node id="397577" type="de.grogra.turtle.Translate" edges="-">
+         <data gx:name="translateY" gx:value="0.05"/>
+         <node id="397578" type="surroundings$RockwoolBlock" edges="-">
+          <node id="397579" type="de.grogra.turtle.Translate" edges="-">
+           <data gx:name="translateY" gx:value="-0.05"/>
+           <data gx:name="translateZ" gx:value="0.065"/>
+           <node id="397580" type="de.grogra.turtle.RH" edges="-">
+            <data gx:name="angle" gx:value="138.6681"/>
+            <node id="397581" type="plant_level$PlantBase" edges="-">
+             <data gx:name="row" gx:value="3"/>
+             <data gx:name="pos" gx:value="1"/>
+             <data gx:name="plant_number" gx:value="7"/>
+             <node id="397582" type="de.grogra.turtle.RH" edges="-">
+              <node id="397583" type="de.grogra.imp3d.objects.Sphere" edges="-">
+               <data gx:name="radius" gx:value="0.005"/>
+              </node>
+             </node>
+            </node>
+           </node>
+          </node>
+         </node>
+        </node>
+       </node>
+       <node id="397584" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateX" gx:value="0.16903085"/>
+        <node id="397585" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateX" gx:value="0.43096918"/>
+         <data gx:name="translateY" gx:value="0.43096918"/>
+         <node id="397586" type="de.grogra.turtle.Translate" edges="-">
+          <data gx:name="translateY" gx:value="0.05"/>
+          <node id="397587" type="surroundings$RockwoolBlock" edges="-">
+           <node id="397588" type="de.grogra.turtle.Translate" edges="-">
+            <data gx:name="translateY" gx:value="-0.05"/>
+            <data gx:name="translateZ" gx:value="0.065"/>
+            <node id="397589" type="de.grogra.turtle.RH" edges="-">
+             <data gx:name="angle" gx:value="354.54294"/>
+             <node id="397590" type="plant_level$PlantBase" edges="-">
+              <data gx:name="row" gx:value="3"/>
+              <data gx:name="pos" gx:value="2"/>
+              <data gx:name="plant_number" gx:value="8"/>
+              <node id="397591" type="de.grogra.turtle.RH" edges="-">
+               <node id="397592" type="de.grogra.imp3d.objects.Sphere" edges="-">
+                <data gx:name="radius" gx:value="0.005"/>
+               </node>
+              </node>
+             </node>
+            </node>
+           </node>
+          </node>
+         </node>
+        </node>
+        <node id="397593" type="de.grogra.turtle.Translate" edges="-">
+         <data gx:name="translateX" gx:value="0.16903085"/>
+         <node id="397594" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateX" gx:value="0.43096918"/>
+          <data gx:name="translateY" gx:value="0.43096918"/>
+          <node id="397595" type="de.grogra.turtle.Translate" edges="-">
+           <data gx:name="translateY" gx:value="0.05"/>
+           <node id="397596" type="surroundings$RockwoolBlock" edges="-">
+            <node id="397597" type="de.grogra.turtle.Translate" edges="-">
+             <data gx:name="translateY" gx:value="-0.05"/>
+             <data gx:name="translateZ" gx:value="0.065"/>
+             <node id="397598" type="de.grogra.turtle.RH" edges="-">
+              <data gx:name="angle" gx:value="316.5057"/>
+              <node id="397599" type="plant_level$PlantBase" edges="-">
+               <data gx:name="row" gx:value="3"/>
+               <data gx:name="pos" gx:value="3"/>
+               <data gx:name="plant_number" gx:value="9"/>
+               <node id="397600" type="de.grogra.turtle.RH" edges="-">
+                <node id="397601" type="de.grogra.imp3d.objects.Sphere" edges="-">
+                 <data gx:name="radius" gx:value="0.005"/>
+                </node>
+               </node>
+              </node>
+             </node>
+            </node>
+           </node>
+          </node>
+         </node>
+         <node id="397602" type="de.grogra.turtle.Translate" edges="-">
+          <data gx:name="translateX" gx:value="0.16903085"/>
+         </node>
+        </node>
+       </node>
+       <node id="397603" type="de.grogra.turtle.Translate" edges="-">
+        <data gx:name="translateY" gx:value="0.16903085"/>
+       </node>
+      </node>
+     </node>
+     <node id="397604" type="de.grogra.turtle.Translate" edges="+">
+      <data gx:name="translateY" gx:value="0.05"/>
+      <node id="397605" type="de.grogra.turtle.Translate" edges="-">
+       <data gx:name="translateX" gx:value="0.43096918"/>
+       <data gx:name="translateY" gx:value="0.09290747"/>
+       <data gx:name="translateZ" gx:value="0.065"/>
+       <node id="397606" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateY" gx:value="-0.05"/>
+        <node id="397607" type="de.grogra.turtle.RH" edges="-">
+         <data gx:name="angle" gx:value="338.8497"/>
+         <node id="397608" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+        </node>
+       </node>
+       <node id="397609" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateZ" gx:value="-0.065"/>
+        <node id="397610" type="surroundings$RockwoolBlockCloned" edges="-"/>
+       </node>
+       <node id="397611" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateX" gx:value="0.16903085"/>
+        <node id="397612" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateY" gx:value="-0.05"/>
+         <node id="397613" type="de.grogra.turtle.RH" edges="-">
+          <data gx:name="angle" gx:value="63.35163"/>
+          <node id="397614" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+         </node>
+        </node>
+        <node id="397615" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateZ" gx:value="-0.065"/>
+         <node id="397616" type="surroundings$RockwoolBlockCloned" edges="-"/>
+        </node>
+        <node id="397617" type="de.grogra.turtle.Translate" edges="-">
+         <data gx:name="translateX" gx:value="0.16903085"/>
+         <node id="397618" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateY" gx:value="-0.05"/>
+          <node id="397619" type="de.grogra.turtle.RH" edges="-">
+           <data gx:name="angle" gx:value="98.98343"/>
+           <node id="397620" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+          </node>
+         </node>
+         <node id="397621" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateZ" gx:value="-0.065"/>
+          <node id="397622" type="surroundings$RockwoolBlockCloned" edges="-"/>
+         </node>
+         <node id="397623" type="de.grogra.turtle.Translate" edges="-">
+          <data gx:name="translateX" gx:value="0.16903085"/>
+         </node>
+        </node>
+       </node>
+       <node id="397624" type="de.grogra.turtle.Translate" edges="-">
+        <data gx:name="translateY" gx:value="0.16903085"/>
+        <node id="397625" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateY" gx:value="-0.05"/>
+         <node id="397626" type="de.grogra.turtle.RH" edges="-">
+          <data gx:name="angle" gx:value="112.656944"/>
+          <node id="397627" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+         </node>
+        </node>
+        <node id="397628" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateZ" gx:value="-0.065"/>
+         <node id="397629" type="surroundings$RockwoolBlockCloned" edges="-"/>
+        </node>
+        <node id="397630" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateX" gx:value="0.16903085"/>
+         <node id="397631" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateY" gx:value="-0.05"/>
+          <node id="397632" type="de.grogra.turtle.RH" edges="-">
+           <data gx:name="angle" gx:value="46.402966"/>
+           <node id="397633" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+          </node>
+         </node>
+         <node id="397634" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateZ" gx:value="-0.065"/>
+          <node id="397635" type="surroundings$RockwoolBlockCloned" edges="-"/>
+         </node>
+         <node id="397636" type="de.grogra.turtle.Translate" edges="-">
+          <data gx:name="translateX" gx:value="0.16903085"/>
+          <node id="397637" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateY" gx:value="-0.05"/>
+           <node id="397638" type="de.grogra.turtle.RH" edges="-">
+            <data gx:name="angle" gx:value="132.47125"/>
+            <node id="397639" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+           </node>
+          </node>
+          <node id="397640" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateZ" gx:value="-0.065"/>
+           <node id="397641" type="surroundings$RockwoolBlockCloned" edges="-"/>
+          </node>
+          <node id="397642" type="de.grogra.turtle.Translate" edges="-">
+           <data gx:name="translateX" gx:value="0.16903085"/>
+          </node>
+         </node>
+        </node>
+        <node id="397643" type="de.grogra.turtle.Translate" edges="-">
+         <data gx:name="translateY" gx:value="0.16903085"/>
+        </node>
+       </node>
+      </node>
+     </node>
+     <node id="397644" type="de.grogra.turtle.Translate" edges="+">
+      <data gx:name="translateY" gx:value="0.05"/>
+      <node id="397645" type="de.grogra.turtle.Translate" edges="-">
+       <data gx:name="translateX" gx:value="0.43096918"/>
+       <data gx:name="translateY" gx:value="0.9380617"/>
+       <data gx:name="translateZ" gx:value="0.065"/>
+       <node id="397646" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateY" gx:value="-0.05"/>
+        <node id="397647" type="de.grogra.turtle.RH" edges="-">
+         <data gx:name="angle" gx:value="52.77658"/>
+         <node id="397648" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+        </node>
+       </node>
+       <node id="397649" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateZ" gx:value="-0.065"/>
+        <node id="397650" type="surroundings$RockwoolBlockCloned" edges="-"/>
+       </node>
+       <node id="397651" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateX" gx:value="0.16903085"/>
+        <node id="397652" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateY" gx:value="-0.05"/>
+         <node id="397653" type="de.grogra.turtle.RH" edges="-">
+          <data gx:name="angle" gx:value="253.86292"/>
+          <node id="397654" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+         </node>
+        </node>
+        <node id="397655" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateZ" gx:value="-0.065"/>
+         <node id="397656" type="surroundings$RockwoolBlockCloned" edges="-"/>
+        </node>
+        <node id="397657" type="de.grogra.turtle.Translate" edges="-">
+         <data gx:name="translateX" gx:value="0.16903085"/>
+         <node id="397658" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateY" gx:value="-0.05"/>
+          <node id="397659" type="de.grogra.turtle.RH" edges="-">
+           <data gx:name="angle" gx:value="8.365725"/>
+           <node id="397660" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+          </node>
+         </node>
+         <node id="397661" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateZ" gx:value="-0.065"/>
+          <node id="397662" type="surroundings$RockwoolBlockCloned" edges="-"/>
+         </node>
+         <node id="397663" type="de.grogra.turtle.Translate" edges="-">
+          <data gx:name="translateX" gx:value="0.16903085"/>
+          <node id="397664" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateY" gx:value="-0.05"/>
+           <node id="397665" type="de.grogra.turtle.RH" edges="-">
+            <data gx:name="angle" gx:value="0.49919128"/>
+            <node id="397666" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+           </node>
+          </node>
+          <node id="397667" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateZ" gx:value="-0.065"/>
+           <node id="397668" type="surroundings$RockwoolBlockCloned" edges="-"/>
+          </node>
+          <node id="397669" type="de.grogra.turtle.Translate" edges="-">
+           <data gx:name="translateX" gx:value="0.16903085"/>
+           <node id="397670" type="de.grogra.turtle.Translate" edges="+">
+            <data gx:name="translateY" gx:value="-0.05"/>
+            <node id="397671" type="de.grogra.turtle.RH" edges="-">
+             <data gx:name="angle" gx:value="196.82631"/>
+             <node id="397672" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+            </node>
+           </node>
+           <node id="397673" type="de.grogra.turtle.Translate" edges="+">
+            <data gx:name="translateZ" gx:value="-0.065"/>
+            <node id="397674" type="surroundings$RockwoolBlockCloned" edges="-"/>
+           </node>
+           <node id="397675" type="de.grogra.turtle.Translate" edges="-">
+            <data gx:name="translateX" gx:value="0.16903085"/>
+           </node>
+          </node>
+         </node>
+        </node>
+       </node>
+       <node id="397676" type="de.grogra.turtle.Translate" edges="-">
+        <data gx:name="translateY" gx:value="0.16903085"/>
+        <node id="397677" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateY" gx:value="-0.05"/>
+         <node id="397678" type="de.grogra.turtle.RH" edges="-">
+          <data gx:name="angle" gx:value="3.3209395"/>
+          <node id="397679" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+         </node>
+        </node>
+        <node id="397680" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateZ" gx:value="-0.065"/>
+         <node id="397681" type="surroundings$RockwoolBlockCloned" edges="-"/>
+        </node>
+        <node id="397682" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateX" gx:value="0.16903085"/>
+         <node id="397683" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateY" gx:value="-0.05"/>
+          <node id="397684" type="de.grogra.turtle.RH" edges="-">
+           <data gx:name="angle" gx:value="347.21527"/>
+           <node id="397685" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+          </node>
+         </node>
+         <node id="397686" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateZ" gx:value="-0.065"/>
+          <node id="397687" type="surroundings$RockwoolBlockCloned" edges="-"/>
+         </node>
+         <node id="397688" type="de.grogra.turtle.Translate" edges="-">
+          <data gx:name="translateX" gx:value="0.16903085"/>
+          <node id="397689" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateY" gx:value="-0.05"/>
+           <node id="397690" type="de.grogra.turtle.RH" edges="-">
+            <data gx:name="angle" gx:value="202.66188"/>
+            <node id="397691" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+           </node>
+          </node>
+          <node id="397692" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateZ" gx:value="-0.065"/>
+           <node id="397693" type="surroundings$RockwoolBlockCloned" edges="-"/>
+          </node>
+          <node id="397694" type="de.grogra.turtle.Translate" edges="-">
+           <data gx:name="translateX" gx:value="0.16903085"/>
+           <node id="397695" type="de.grogra.turtle.Translate" edges="+">
+            <data gx:name="translateY" gx:value="-0.05"/>
+            <node id="397696" type="de.grogra.turtle.RH" edges="-">
+             <data gx:name="angle" gx:value="37.61663"/>
+             <node id="397697" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+            </node>
+           </node>
+           <node id="397698" type="de.grogra.turtle.Translate" edges="+">
+            <data gx:name="translateZ" gx:value="-0.065"/>
+            <node id="397699" type="surroundings$RockwoolBlockCloned" edges="-"/>
+           </node>
+           <node id="397700" type="de.grogra.turtle.Translate" edges="-">
+            <data gx:name="translateX" gx:value="0.16903085"/>
+            <node id="397701" type="de.grogra.turtle.Translate" edges="+">
+             <data gx:name="translateY" gx:value="-0.05"/>
+             <node id="397702" type="de.grogra.turtle.RH" edges="-">
+              <data gx:name="angle" gx:value="91.03791"/>
+              <node id="397703" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+             </node>
+            </node>
+            <node id="397704" type="de.grogra.turtle.Translate" edges="+">
+             <data gx:name="translateZ" gx:value="-0.065"/>
+             <node id="397705" type="surroundings$RockwoolBlockCloned" edges="-"/>
+            </node>
+            <node id="397706" type="de.grogra.turtle.Translate" edges="-">
+             <data gx:name="translateX" gx:value="0.16903085"/>
+            </node>
+           </node>
+          </node>
+         </node>
+        </node>
+        <node id="397707" type="de.grogra.turtle.Translate" edges="-">
+         <data gx:name="translateY" gx:value="0.16903085"/>
+        </node>
+       </node>
+      </node>
+     </node>
+     <node id="397708" type="de.grogra.turtle.Translate" edges="+">
+      <data gx:name="translateY" gx:value="0.05"/>
+      <node id="397709" type="de.grogra.turtle.Translate" edges="-">
+       <data gx:name="translateX" gx:value="0.9380617"/>
+       <data gx:name="translateY" gx:value="0.09290747"/>
+       <data gx:name="translateZ" gx:value="0.065"/>
+       <node id="397710" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateY" gx:value="-0.05"/>
+        <node id="397711" type="de.grogra.turtle.RH" edges="-">
+         <data gx:name="angle" gx:value="225.05267"/>
+         <node id="397712" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+        </node>
+       </node>
+       <node id="397713" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateZ" gx:value="-0.065"/>
+        <node id="397714" type="surroundings$RockwoolBlockCloned" edges="-"/>
+       </node>
+       <node id="397715" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateX" gx:value="0.16903085"/>
+        <node id="397716" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateY" gx:value="-0.05"/>
+         <node id="397717" type="de.grogra.turtle.RH" edges="-">
+          <data gx:name="angle" gx:value="102.92571"/>
+          <node id="397718" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+         </node>
+        </node>
+        <node id="397719" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateZ" gx:value="-0.065"/>
+         <node id="397720" type="surroundings$RockwoolBlockCloned" edges="-"/>
+        </node>
+        <node id="397721" type="de.grogra.turtle.Translate" edges="-">
+         <data gx:name="translateX" gx:value="0.16903085"/>
+        </node>
+       </node>
+       <node id="397722" type="de.grogra.turtle.Translate" edges="-">
+        <data gx:name="translateY" gx:value="0.16903085"/>
+        <node id="397723" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateY" gx:value="-0.05"/>
+         <node id="397724" type="de.grogra.turtle.RH" edges="-">
+          <data gx:name="angle" gx:value="147.88663"/>
+          <node id="397725" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+         </node>
+        </node>
+        <node id="397726" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateZ" gx:value="-0.065"/>
+         <node id="397727" type="surroundings$RockwoolBlockCloned" edges="-"/>
+        </node>
+        <node id="397728" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateX" gx:value="0.16903085"/>
+         <node id="397729" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateY" gx:value="-0.05"/>
+          <node id="397730" type="de.grogra.turtle.RH" edges="-">
+           <data gx:name="angle" gx:value="5.3737307"/>
+           <node id="397731" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+          </node>
+         </node>
+         <node id="397732" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateZ" gx:value="-0.065"/>
+          <node id="397733" type="surroundings$RockwoolBlockCloned" edges="-"/>
+         </node>
+         <node id="397734" type="de.grogra.turtle.Translate" edges="-">
+          <data gx:name="translateX" gx:value="0.16903085"/>
+         </node>
+        </node>
+        <node id="397735" type="de.grogra.turtle.Translate" edges="-">
+         <data gx:name="translateY" gx:value="0.16903085"/>
+         <node id="397736" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateY" gx:value="-0.05"/>
+          <node id="397737" type="de.grogra.turtle.RH" edges="-">
+           <data gx:name="angle" gx:value="279.4724"/>
+           <node id="397738" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+          </node>
+         </node>
+         <node id="397739" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateZ" gx:value="-0.065"/>
+          <node id="397740" type="surroundings$RockwoolBlockCloned" edges="-"/>
+         </node>
+         <node id="397741" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateX" gx:value="0.16903085"/>
+          <node id="397742" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateY" gx:value="-0.05"/>
+           <node id="397743" type="de.grogra.turtle.RH" edges="-">
+            <data gx:name="angle" gx:value="351.6112"/>
+            <node id="397744" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+           </node>
+          </node>
+          <node id="397745" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateZ" gx:value="-0.065"/>
+           <node id="397746" type="surroundings$RockwoolBlockCloned" edges="-"/>
+          </node>
+          <node id="397747" type="de.grogra.turtle.Translate" edges="-">
+           <data gx:name="translateX" gx:value="0.16903085"/>
+          </node>
+         </node>
+         <node id="397748" type="de.grogra.turtle.Translate" edges="-">
+          <data gx:name="translateY" gx:value="0.16903085"/>
+          <node id="397749" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateY" gx:value="-0.05"/>
+           <node id="397750" type="de.grogra.turtle.RH" edges="-">
+            <data gx:name="angle" gx:value="356.6602"/>
+            <node id="397751" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+           </node>
+          </node>
+          <node id="397752" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateZ" gx:value="-0.065"/>
+           <node id="397753" type="surroundings$RockwoolBlockCloned" edges="-"/>
+          </node>
+          <node id="397754" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateX" gx:value="0.16903085"/>
+           <node id="397755" type="de.grogra.turtle.Translate" edges="+">
+            <data gx:name="translateY" gx:value="-0.05"/>
+            <node id="397756" type="de.grogra.turtle.RH" edges="-">
+             <data gx:name="angle" gx:value="247.76442"/>
+             <node id="397757" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+            </node>
+           </node>
+           <node id="397758" type="de.grogra.turtle.Translate" edges="+">
+            <data gx:name="translateZ" gx:value="-0.065"/>
+            <node id="397759" type="surroundings$RockwoolBlockCloned" edges="-"/>
+           </node>
+           <node id="397760" type="de.grogra.turtle.Translate" edges="-">
+            <data gx:name="translateX" gx:value="0.16903085"/>
+           </node>
+          </node>
+          <node id="397761" type="de.grogra.turtle.Translate" edges="-">
+           <data gx:name="translateY" gx:value="0.16903085"/>
+           <node id="397762" type="de.grogra.turtle.Translate" edges="+">
+            <data gx:name="translateY" gx:value="-0.05"/>
+            <node id="397763" type="de.grogra.turtle.RH" edges="-">
+             <data gx:name="angle" gx:value="175.40381"/>
+             <node id="397764" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+            </node>
+           </node>
+           <node id="397765" type="de.grogra.turtle.Translate" edges="+">
+            <data gx:name="translateZ" gx:value="-0.065"/>
+            <node id="397766" type="surroundings$RockwoolBlockCloned" edges="-"/>
+           </node>
+           <node id="397767" type="de.grogra.turtle.Translate" edges="+">
+            <data gx:name="translateX" gx:value="0.16903085"/>
+            <node id="397768" type="de.grogra.turtle.Translate" edges="+">
+             <data gx:name="translateY" gx:value="-0.05"/>
+             <node id="397769" type="de.grogra.turtle.RH" edges="-">
+              <data gx:name="angle" gx:value="312.36432"/>
+              <node id="397770" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+             </node>
+            </node>
+            <node id="397771" type="de.grogra.turtle.Translate" edges="+">
+             <data gx:name="translateZ" gx:value="-0.065"/>
+             <node id="397772" type="surroundings$RockwoolBlockCloned" edges="-"/>
+            </node>
+            <node id="397773" type="de.grogra.turtle.Translate" edges="-">
+             <data gx:name="translateX" gx:value="0.16903085"/>
+            </node>
+           </node>
+           <node id="397774" type="de.grogra.turtle.Translate" edges="-">
+            <data gx:name="translateY" gx:value="0.16903085"/>
+           </node>
+          </node>
+         </node>
+        </node>
+       </node>
+      </node>
+     </node>
+     <node id="397775" type="de.grogra.turtle.Translate" edges="+">
+      <data gx:name="translateY" gx:value="0.05"/>
+      <node id="397776" type="de.grogra.turtle.Translate" edges="-">
+       <data gx:name="translateX" gx:value="0.09290747"/>
+       <data gx:name="translateY" gx:value="0.09290747"/>
+       <data gx:name="translateZ" gx:value="0.065"/>
+       <node id="397777" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateY" gx:value="-0.05"/>
+        <node id="397778" type="de.grogra.turtle.RH" edges="-">
+         <data gx:name="angle" gx:value="268.6469"/>
+         <node id="397779" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+        </node>
+       </node>
+       <node id="397780" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateZ" gx:value="-0.065"/>
+        <node id="397781" type="surroundings$RockwoolBlockCloned" edges="-"/>
+       </node>
+       <node id="397782" type="de.grogra.turtle.Translate" edges="+">
+        <data gx:name="translateX" gx:value="0.16903085"/>
+        <node id="397783" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateY" gx:value="-0.05"/>
+         <node id="397784" type="de.grogra.turtle.RH" edges="-">
+          <data gx:name="angle" gx:value="353.14023"/>
+          <node id="397785" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+         </node>
+        </node>
+        <node id="397786" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateZ" gx:value="-0.065"/>
+         <node id="397787" type="surroundings$RockwoolBlockCloned" edges="-"/>
+        </node>
+        <node id="397788" type="de.grogra.turtle.Translate" edges="-">
+         <data gx:name="translateX" gx:value="0.16903085"/>
+        </node>
+       </node>
+       <node id="397789" type="de.grogra.turtle.Translate" edges="-">
+        <data gx:name="translateY" gx:value="0.16903085"/>
+        <node id="397790" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateY" gx:value="-0.05"/>
+         <node id="397791" type="de.grogra.turtle.RH" edges="-">
+          <data gx:name="angle" gx:value="263.93472"/>
+          <node id="397792" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+         </node>
+        </node>
+        <node id="397793" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateZ" gx:value="-0.065"/>
+         <node id="397794" type="surroundings$RockwoolBlockCloned" edges="-"/>
+        </node>
+        <node id="397795" type="de.grogra.turtle.Translate" edges="+">
+         <data gx:name="translateX" gx:value="0.16903085"/>
+         <node id="397796" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateY" gx:value="-0.05"/>
+          <node id="397797" type="de.grogra.turtle.RH" edges="-">
+           <data gx:name="angle" gx:value="205.21234"/>
+           <node id="397798" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+          </node>
+         </node>
+         <node id="397799" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateZ" gx:value="-0.065"/>
+          <node id="397800" type="surroundings$RockwoolBlockCloned" edges="-"/>
+         </node>
+         <node id="397801" type="de.grogra.turtle.Translate" edges="-">
+          <data gx:name="translateX" gx:value="0.16903085"/>
+         </node>
+        </node>
+        <node id="397802" type="de.grogra.turtle.Translate" edges="-">
+         <data gx:name="translateY" gx:value="0.16903085"/>
+         <node id="397803" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateY" gx:value="-0.05"/>
+          <node id="397804" type="de.grogra.turtle.RH" edges="-">
+           <data gx:name="angle" gx:value="294.22693"/>
+           <node id="397805" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+          </node>
+         </node>
+         <node id="397806" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateZ" gx:value="-0.065"/>
+          <node id="397807" type="surroundings$RockwoolBlockCloned" edges="-"/>
+         </node>
+         <node id="397808" type="de.grogra.turtle.Translate" edges="+">
+          <data gx:name="translateX" gx:value="0.16903085"/>
+          <node id="397809" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateY" gx:value="-0.05"/>
+           <node id="397810" type="de.grogra.turtle.RH" edges="-">
+            <data gx:name="angle" gx:value="4.610374"/>
+            <node id="397811" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+           </node>
+          </node>
+          <node id="397812" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateZ" gx:value="-0.065"/>
+           <node id="397813" type="surroundings$RockwoolBlockCloned" edges="-"/>
+          </node>
+          <node id="397814" type="de.grogra.turtle.Translate" edges="-">
+           <data gx:name="translateX" gx:value="0.16903085"/>
+          </node>
+         </node>
+         <node id="397815" type="de.grogra.turtle.Translate" edges="-">
+          <data gx:name="translateY" gx:value="0.16903085"/>
+          <node id="397816" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateY" gx:value="-0.05"/>
+           <node id="397817" type="de.grogra.turtle.RH" edges="-">
+            <data gx:name="angle" gx:value="302.00052"/>
+            <node id="397818" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+           </node>
+          </node>
+          <node id="397819" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateZ" gx:value="-0.065"/>
+           <node id="397820" type="surroundings$RockwoolBlockCloned" edges="-"/>
+          </node>
+          <node id="397821" type="de.grogra.turtle.Translate" edges="+">
+           <data gx:name="translateX" gx:value="0.16903085"/>
+           <node id="397822" type="de.grogra.turtle.Translate" edges="+">
+            <data gx:name="translateY" gx:value="-0.05"/>
+            <node id="397823" type="de.grogra.turtle.RH" edges="-">
+             <data gx:name="angle" gx:value="148.39839"/>
+             <node id="397824" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+            </node>
+           </node>
+           <node id="397825" type="de.grogra.turtle.Translate" edges="+">
+            <data gx:name="translateZ" gx:value="-0.065"/>
+            <node id="397826" type="surroundings$RockwoolBlockCloned" edges="-"/>
+           </node>
+           <node id="397827" type="de.grogra.turtle.Translate" edges="-">
+            <data gx:name="translateX" gx:value="0.16903085"/>
+           </node>
+          </node>
+          <node id="397828" type="de.grogra.turtle.Translate" edges="-">
+           <data gx:name="translateY" gx:value="0.16903085"/>
+           <node id="397829" type="de.grogra.turtle.Translate" edges="+">
+            <data gx:name="translateY" gx:value="-0.05"/>
+            <node id="397830" type="de.grogra.turtle.RH" edges="-">
+             <data gx:name="angle" gx:value="189.61179"/>
+             <node id="397831" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+            </node>
+           </node>
+           <node id="397832" type="de.grogra.turtle.Translate" edges="+">
+            <data gx:name="translateZ" gx:value="-0.065"/>
+            <node id="397833" type="surroundings$RockwoolBlockCloned" edges="-"/>
+           </node>
+           <node id="397834" type="de.grogra.turtle.Translate" edges="+">
+            <data gx:name="translateX" gx:value="0.16903085"/>
+            <node id="397835" type="de.grogra.turtle.Translate" edges="+">
+             <data gx:name="translateY" gx:value="-0.05"/>
+             <node id="397836" type="de.grogra.turtle.RH" edges="-">
+              <data gx:name="angle" gx:value="261.27893"/>
+              <node id="397837" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+             </node>
+            </node>
+            <node id="397838" type="de.grogra.turtle.Translate" edges="+">
+             <data gx:name="translateZ" gx:value="-0.065"/>
+             <node id="397839" type="surroundings$RockwoolBlockCloned" edges="-"/>
+            </node>
+            <node id="397840" type="de.grogra.turtle.Translate" edges="-">
+             <data gx:name="translateX" gx:value="0.16903085"/>
+            </node>
+           </node>
+           <node id="397841" type="de.grogra.turtle.Translate" edges="-">
+            <data gx:name="translateY" gx:value="0.16903085"/>
+            <node id="397842" type="de.grogra.turtle.Translate" edges="+">
+             <data gx:name="translateY" gx:value="-0.05"/>
+             <node id="397843" type="de.grogra.turtle.RH" edges="-">
+              <data gx:name="angle" gx:value="323.7606"/>
+              <node id="397844" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+             </node>
+            </node>
+            <node id="397845" type="de.grogra.turtle.Translate" edges="+">
+             <data gx:name="translateZ" gx:value="-0.065"/>
+             <node id="397846" type="surroundings$RockwoolBlockCloned" edges="-"/>
+            </node>
+            <node id="397847" type="de.grogra.turtle.Translate" edges="+">
+             <data gx:name="translateX" gx:value="0.16903085"/>
+             <node id="397848" type="de.grogra.turtle.Translate" edges="+">
+              <data gx:name="translateY" gx:value="-0.05"/>
+              <node id="397849" type="de.grogra.turtle.RH" edges="-">
+               <data gx:name="angle" gx:value="354.48267"/>
+               <node id="397850" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+              </node>
+             </node>
+             <node id="397851" type="de.grogra.turtle.Translate" edges="+">
+              <data gx:name="translateZ" gx:value="-0.065"/>
+              <node id="397852" type="surroundings$RockwoolBlockCloned" edges="-"/>
+             </node>
+             <node id="397853" type="de.grogra.turtle.Translate" edges="-">
+              <data gx:name="translateX" gx:value="0.16903085"/>
+             </node>
+            </node>
+            <node id="397854" type="de.grogra.turtle.Translate" edges="-">
+             <data gx:name="translateY" gx:value="0.16903085"/>
+             <node id="397855" type="de.grogra.turtle.Translate" edges="+">
+              <data gx:name="translateY" gx:value="-0.05"/>
+              <node id="397856" type="de.grogra.turtle.RH" edges="-">
+               <data gx:name="angle" gx:value="48.21833"/>
+               <node id="397857" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+              </node>
+             </node>
+             <node id="397858" type="de.grogra.turtle.Translate" edges="+">
+              <data gx:name="translateZ" gx:value="-0.065"/>
+              <node id="397859" type="surroundings$RockwoolBlockCloned" edges="-"/>
+             </node>
+             <node id="397860" type="de.grogra.turtle.Translate" edges="+">
+              <data gx:name="translateX" gx:value="0.16903085"/>
+              <node id="397861" type="de.grogra.turtle.Translate" edges="+">
+               <data gx:name="translateY" gx:value="-0.05"/>
+               <node id="397862" type="de.grogra.turtle.RH" edges="-">
+                <data gx:name="angle" gx:value="196.60585"/>
+                <node id="397863" type="auxiliary_tools_and_charts$CopyPlant" edges="-"/>
+               </node>
+              </node>
+              <node id="397864" type="de.grogra.turtle.Translate" edges="+">
+               <data gx:name="translateZ" gx:value="-0.065"/>
+               <node id="397865" type="surroundings$RockwoolBlockCloned" edges="-"/>
+              </node>
+              <node id="397866" type="de.grogra.turtle.Translate" edges="-">
+               <data gx:name="translateX" gx:value="0.16903085"/>
+              </node>
+             </node>
+             <node id="397867" type="de.grogra.turtle.Translate" edges="-">
+              <data gx:name="translateY" gx:value="0.16903085"/>
+             </node>
+            </node>
+           </node>
+          </node>
+         </node>
+        </node>
+       </node>
+      </node>
+     </node>
+    </node>
+   </node>
+  </node>
+ </node>
+</graph>

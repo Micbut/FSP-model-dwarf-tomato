@@ -1,0 +1,289 @@
+import static parameters.*;
+import static organs.*;
+import static plant_level.*;
+import static crop_level.*;
+import static parameters_derived.*;
+import static light.*;
+import static auxiliary_tools_and_charts.*;
+import static photosynthesis.*;
+import static MTG_importer.*;
+
+import de.grogra.gpuflux.imp3d.spectral.IrregularSpectralCurve; 
+import de.grogra.gpuflux.imp3d.shading.ChannelSPD;
+import de.grogra.gpuflux.scene.experiment.Measurement;
+import java.util.*;
+import de.grogra.xl.util.FloatList;
+import de.grogra.xl.util.IntList;
+
+// module that contains plant-wide variables
+module PlantBase extends Null {
+
+	float	age_in_degree_days_dd;						// plant age (degree days)
+	int		age_in_days_d;								// plant age (days)
+	int		row;										// row number
+	int		pos;										// position within row
+	int		plant_number;								// plant number in the field
+	double	PAR_absorbed_per_plant_leaves_second_umol;	// absorbed radiation (umol / s)
+	double	PAR_absorbed_per_plant_all_second_umol;		// absorbed radiation (umol / s)
+	double	cumulative_PAR_absorbed_per_plant_umol;		// absorbed radiation (umol )
+
+	double	carbon_assimilation_plant_daily_umol;		// carbon_assimilation_organ_daily_umol carbon (umol CO2 / day)
+	double	carbon_assimilation_plant_leaves_daily_umol;// just_leaves: carbon_assimilation_organ_daily_umol carbon (umol CO2 / day)
+	
+	double	carbon_assimilation_plant_second_umol;
+	double	carbon_assimilation_plant_leaves_second_umol;
+
+
+	double 	assimilates_mg;								// assimilates_mg produced in a day	
+	double 	assimilates_if_just_leaves_mg;				// assimilates_mg produced in a day	
+		
+	double	cumulative_carbon_assimilation_plant_umol;
+	double	cumulative_gross_assimmilates_plant_mg;
+	double	cumulative_maintenance_demand_plant_mg;
+	double	cumulative_assimilates_plant_mg;
+
+	double	reserve_pool_mg;							// this is the reserve pool, the buffer --> maybe it should be switched off?
+	double 	sink_strength_per_day_mg;					// total plant sink strength
+	double	above_ground_organs_sink_strength ;	
+	double	above_ground_organs_sink_strength_just_for_growth_and_not_respiration_growth_for_calculating_root_fraction ;	
+	double	dry_biomass_roots;
+	double	dry_biomass_plant_above_ground_mg ;
+	double 	dry_biomass_leaf_blades;					// leaf dry_biomass_plant_mg
+	double	dry_biomass_internodes;						// stem dry_biomass_plant_mg
+	double 	dry_biomass_plant_mg;						// total plant dry_biomass_plant_mg (all organs + reserves - no roots)
+	double 	dry_biomass_plant_with_roots_mg;			// total plant dry_biomass_plant_mg (all organs + reserves + roots)
+	double	dry_biomass_structural_and_min_pool_mg;
+	double	dry_biomass_plant_above_ground_vegetative_mg;		//no roots, no fruits, no stemmy part of truss
+	double 	dry_biomass_assimilates_and_available_buffer_mg;	// assimilates_mg produced in a day together with resrve pool: this is the assimilates available\
+	double 	dry_biomass_total_buffer_mg;						// assimilates_mg produced in a day together with resrve pool: this is the assimilates available\
+	double	total_blades_dry_biomass_structural_mg;
+	double	dry_biomass_leaves;
+	double	dry_biomass_stems;
+	double	dry_biomass_fruits_mg;
+	double	fresh_biomass_fruits_mg;
+		
+	double	nr_internodes;	
+	double	root_shoot;
+	double	leafArea;						// total plant leaf area_m2
+	boolean flowering;						// true if main stem switched to producing the inforescence  
+	boolean extending;						// true if main ste has started extension dry_biomass_growth_mg
+	double 	initialAngle;
+	float	test_appearance;
+	
+	float	dry_biomass_growth_mg;
+	float	relative_growth_rate;
+	float	relative_growth_rate_last_5_days;
+	float	previous_day_dry_biomass_plant_with_roots_mg;
+	float	temp_1;
+	float	temp_2;
+	float	temp_3;
+	float	temp_4;
+	float	temp_5;
+	
+	double	gross_assimmilates_mg;
+	double	gross_assimmilates_just_leaves_mg;
+
+	double	maintenance_demand_mg;
+	
+	double	dry_biomass_leaf_blades_mg;
+	double	dry_biomass_leaf_blades_order_0_mg;
+	double	dry_biomass_leaf_blades_order_1_mg;
+		
+	double	dry_biomass_leaves_mg;
+	double	dry_biomass_leaves_0_mg;
+	double	dry_biomass_leaves_1_mg	;
+		
+	double	dry_biomass_internodes_mg;
+	double	dry_biomass_internodes_0_mg;
+	double  dry_biomass_internodes_1_mg;
+	double	dry_biomass_truss_mg;
+	
+	double	fresh_biomass_fruits_harvested_mg;
+	double	leaf_blade_area_m2;
+	double	leaf_blade_area_order_0_m2;
+	double	leaf_blade_area_order_1_m2 ;
+	double	leaf_area_m2;
+	double	leaf_area_order_0_m2;
+	double	leaf_area_order_1_m2 ;
+	double	assimilates_to_growth_mg;
+	
+	// initiation of the plant
+	void initiate(  int i, int row, int pos){
+		plant_number										=	i;		
+		age_in_degree_days_dd								=	0;
+		dry_biomass_assimilates_and_available_buffer_mg	=	0;
+		
+		cumulative_PAR_absorbed_per_plant_umol				=	0;
+		cumulative_carbon_assimilation_plant_umol			=	0;
+		cumulative_gross_assimmilates_plant_mg				=	0;
+		cumulative_maintenance_demand_plant_mg				=	0;	
+		cumulative_assimilates_plant_mg						=	0;
+
+		this.row											= 	row;
+		this.pos											=	pos;	
+	}
+
+	// calculate plant age
+	void calcAge() {		
+		if (time == 0){
+			age_in_degree_days_dd	=	Float.parseFloat( MTG[0][column_degreeDays]);
+		}else{age_in_degree_days_dd	= age_in_degree_days_dd +(	AVERAGE_TEMP - BASE_TEMPERATURE);}
+		age_in_days_d++;
+		test_appearance = 1/((age_in_degree_days_dd)*(-4.81*0.00001)+0.06214);
+	}
+	
+	// calculate carbon assimilates_mg for dry_biomass_growth_mg based on assimilates_mg acquired
+	double calcSourceStrength(){
+		cumulative_PAR_absorbed_per_plant_umol				+=	sum((* v:GrowingOrgan, (v.plant_number == plant_number) *)[PAR_incoming_per_organ_umol]); //per second!
+		carbon_assimilation_plant_daily_umol				=	sum((* v:GrowingOrgan, (v.plant_number == plant_number) *)[carbon_assimilation_organ_daily_umol]);		
+		carbon_assimilation_plant_leaves_daily_umol			=	sum((* v:Leaf, (v.plant_number == plant_number) *)[carbon_assimilation_organ_daily_umol]);
+
+		cumulative_carbon_assimilation_plant_umol			+=	carbon_assimilation_plant_daily_umol;
+		carbon_assimilation_plant_second_umol				=	carbon_assimilation_plant_daily_umol/(PHOTOPERIOD*60*60);
+		carbon_assimilation_plant_leaves_second_umol		=	carbon_assimilation_plant_leaves_daily_umol/(PHOTOPERIOD*60*60);
+		
+		if(isStatic){//
+			
+			gross_assimmilates_mg							=	(MOLAR_MASS_CO2 /1000 * carbon_assimilation_plant_daily_umol ) * CONVERSION_FACTOR_CO2_TO_CHO;
+			
+			gross_assimmilates_just_leaves_mg				=	(MOLAR_MASS_CO2 /1000 * carbon_assimilation_plant_leaves_daily_umol ) * CONVERSION_FACTOR_CO2_TO_CHO;
+			
+			double root_biomass								=	 (ROOT_FRACTION/(1-ROOT_FRACTION)) *  sum((* g:GrowingOrgan, (g.plant_number == plant_number) *)[dry_biomass_mg])*0.90; // this step is necessary at the oment, because the static model cannot calculate the biomass of the roots as done in the dynamic. I have to do it in the present line. The assumption is that 90% of dry weight is structural
+			double root_respiration							=	root_biomass * MAINTENANCE_RESPIRATION_ROOT* Math.pow(2, (AVERAGE_TEMP - 25)/10) * (1 - Math.pow(Math.E, -F*RELATIVE_GROWTH_RATE_LAST_5_DAYS)); 
+
+			maintenance_demand_mg							=	root_respiration + sum((* g:GrowingOrgan, (g.plant_number == plant_number) *)[maintenanceDemand]);
+		
+			assimilates_mg									=	Math.max(0,gross_assimmilates_mg-maintenance_demand_mg ); // this is what plant photsynthetise in a day	
+			assimilates_if_just_leaves_mg					=	Math.max(0,gross_assimmilates_just_leaves_mg-maintenance_demand_mg ); // this is what plant photsynthetise in a day	
+
+		}else{
+			gross_assimmilates_mg							=	(MOLAR_MASS_CO2 /1000 * carbon_assimilation_plant_daily_umol ) * CONVERSION_FACTOR_CO2_TO_CHO;
+			
+			cumulative_gross_assimmilates_plant_mg			+= gross_assimmilates_mg;
+			maintenance_demand_mg							=	sum((* g:GrowingOrgan, (g.plant_number == plant_number) *)[maintenanceDemand]);
+			
+			cumulative_maintenance_demand_plant_mg			=+ maintenance_demand_mg;
+			
+			assimilates_mg									=	Math.max(0,gross_assimmilates_mg-maintenance_demand_mg ); // this is what plant photsynthetise in a day	
+			
+			cumulative_assimilates_plant_mg					+=	assimilates_mg;
+
+		}
+		dry_biomass_assimilates_and_available_buffer_mg		+= 	assimilates_mg;
+
+	}
+
+	// calculate plant sink strength based on organ sink strengths 
+	double calcSinkStrengthAboveground(){
+		// for carbon
+		 above_ground_organs_sink_strength																			= sum((* g:GrowingOrgan, (g.plant_number == plant_number && g.isRoot == false ) *)[sink_strength_per_day_mg]);
+		 above_ground_organs_sink_strength_just_for_growth_and_not_respiration_growth_for_calculating_root_fraction = sum((* g:GrowingOrgan, (g.plant_number == plant_number && g.isRoot != true && g.isFruit != true && g.isStemTruss != true ) *)[sink_strength_per_day_just_for_growth_and_not_respiration_growth_mg]);
+
+	}
+	
+	double calcSinkStrength(){
+		// for carbon
+		if (above_ground_organs_sink_strength > 0) {
+			sink_strength_per_day_mg = sum((* g:GrowingOrgan, (g.plant_number == plant_number  ) *)[sink_strength_per_day_mg]);
+		} else {
+			sink_strength_per_day_mg = 0.0000000000001; ///CHECK IF THIS IS CORRECT?
+		}
+
+	}
+	
+	double calcBuffers(){
+		dry_biomass_assimilates_and_available_buffer_mg 	=	dry_biomass_assimilates_and_available_buffer_mg	-	sum((* v:GrowingOrgan, (v.plant_number == plant_number) *)[assimilates_allocated_to_growth_and_min_buffer_mg]);
+	}
+
+	// update plant dry_biomass_plant_mg and yield
+	void updateBiomass(){
+
+		double assimilates_to_growth_mg;
+	
+		dry_biomass_leaf_blades_mg						=	sum((* l:Leaf, (l.plant_number == plant_number) *)[total_blades_dry_biomass_mg]);
+		dry_biomass_leaf_blades_order_0_mg				=	sum((* l:Leaf, (l.plant_number == plant_number && l.order == 0) *)[total_blades_dry_biomass_mg]);
+		dry_biomass_leaf_blades_order_1_mg				=	sum((* l:Leaf, (l.plant_number == plant_number && l.order == 1) *)[total_blades_dry_biomass_mg]);
+
+		leaf_blade_area_m2								=	sum((* l:Leaf, (l.plant_number == plant_number) *)[area_m2bladesTotal]);
+		leaf_blade_area_order_0_m2						=	sum((* l:Leaf, (l.plant_number == plant_number && l.order == 0) *)[area_m2bladesTotal]);
+		leaf_blade_area_order_1_m2						=	sum((* l:Leaf, (l.plant_number == plant_number && l.order == 1) *)[area_m2bladesTotal]);		
+		
+		total_blades_dry_biomass_structural_mg			=	sum((* l:Leaf, (l.plant_number == plant_number) *)[total_blades_dry_biomass_structural_mg]);
+	
+		dry_biomass_leaves_mg							=	sum((* l:Leaf, (l.plant_number == plant_number) *)[dry_biomass_mg]);
+		dry_biomass_leaves_0_mg							=	sum((* l:Leaf, (l.plant_number == plant_number && l.order == 0) *)[dry_biomass_mg]);
+		dry_biomass_leaves_1_mg							=	sum((* l:Leaf, (l.plant_number == plant_number && l.order == 1) *)[dry_biomass_mg]);
+
+		leaf_area_m2									=	sum((* l:Leaf, (l.plant_number == plant_number) *)[area_m2]);
+		leaf_area_order_0_m2							=	sum((* l:Leaf, (l.plant_number == plant_number && l.order == 0) *)[area_m2]);
+		leaf_area_order_1_m2							=	sum((* l:Leaf, (l.plant_number == plant_number && l.order == 1) *)[area_m2]);
+		
+		dry_biomass_internodes_mg						=	sum((* i:Internode, (i.plant_number == plant_number) *)[dry_biomass_mg]);
+		dry_biomass_internodes_0_mg						=	sum((* i:Internode, (i.plant_number == plant_number && i.order == 0 && i.rank !=0) *)[dry_biomass_mg]);
+		dry_biomass_internodes_1_mg						=	sum((* i:Internode, (i.plant_number == plant_number && i.order == 1) *)[dry_biomass_mg]);
+
+		dry_biomass_truss_mg							=	sum((* i:Truss, (i.plant_number == plant_number) *)[dry_biomass_mg]);
+		
+		dry_biomass_roots								= 	sum((* r:Root, (r.plant_number == plant_number) *)[dry_biomass_mg]);
+
+		dry_biomass_stems								=	dry_biomass_internodes_mg + dry_biomass_leaves_mg - dry_biomass_leaf_blades_mg;
+		
+		dry_biomass_fruits_mg 							=	sum((* tr:Fruits, (tr.plant_number == plant_number) *)[dry_biomass_mg]);
+		
+		fresh_biomass_fruits_mg 						=	sum((* tr:Fruits, (tr.plant_number == plant_number) *)[fresh_biomass_mg]);
+	
+		fresh_biomass_fruits_harvested_mg 				=	sum((* tr:Fruits, (tr.plant_number == plant_number) *)[fresh_biomass_harvested_mg]);
+		
+		dry_biomass_plant_above_ground_mg				=	sum((* g:GrowingOrgan, (g.plant_number == plant_number && g.isRoot == false) *)[dry_biomass_mg]);
+		
+		dry_biomass_plant_above_ground_vegetative_mg	=	sum((* g:GrowingOrgan, (g.plant_number == plant_number && g.isRoot == false && g.isFruit != true && g.isStemTruss != true) *)[dry_biomass_mg]);
+		
+		dry_biomass_plant_with_roots_mg					=	sum((* g:GrowingOrgan, (g.plant_number == plant_number) *)[dry_biomass_mg]);
+		
+		dry_biomass_structural_and_min_pool_mg		=	dry_biomass_plant_with_roots_mg	- dry_biomass_assimilates_and_available_buffer_mg;			
+		
+		nr_internodes									=	count((* v:Internode, (v.plant_number == plant_number&& v.order == 0) *));
+		
+		root_shoot										=	dry_biomass_roots/dry_biomass_plant_above_ground_vegetative_mg;				
+		
+		dry_biomass_growth_mg							=	sum((* v:GrowingOrgan, (v.plant_number == plant_number) *)[dry_biomass_growth_mg]);
+		previous_day_dry_biomass_plant_with_roots_mg	=	dry_biomass_plant_with_roots_mg - dry_biomass_growth_mg;
+		relative_growth_rate							=	Math.log(dry_biomass_plant_with_roots_mg) - Math.log(previous_day_dry_biomass_plant_with_roots_mg);
+		
+		temp_5 = temp_4;
+		temp_4 = temp_3;		
+		temp_3 = temp_2;
+		temp_2 = temp_1;
+		temp_1 = relative_growth_rate;	
+		relative_growth_rate_last_5_days = (temp_1 + temp_2 + temp_3 + temp_4 + temp_5)/5;
+
+
+		//out_plant.println(file_name+","+DENSITY+","+pb[plant_number]+","+pb[age_in_days_d]+","+pb[age_in_degree_days_dd]+","+pb[dry_biomass_leaf_blades_mg]+","+pb[leaf_blade_area_mm2]+","+pb[dry_biomass_leaf_blades_order_0_mg]+","+pb[leaf_blade_area_order_0_mm2]+","+pb[dry_biomass_leaf_blades_order_1_mg]+","+pb[leaf_blade_area_order_1_mm2]+","+pb[dry_biomass_leaves_mg]+","+pb[leaf_area_mm2]+","+pb[dry_biomass_leaves_0_mg]+","+pb[leaf_area_order_0_mm2]+","+pb[dry_biomass_leaves_1_mg]+","+pb[leaf_area_order_1_mm2]+","+pb[dry_biomass_stems]+","+pb[dry_biomass_internodes_mg]+","+pb[dry_biomass_internodes_order_0_mg]+","+pb[dry_biomass_internodes_order_1_mg]+","+pb[dry_biomass_fruits_mg]+","+pb[dry_biomass_plant_above_ground_mg]+","+pb[dry_biomass_roots]+","+pb[dry_biomass_truss_mg]+","+pb[gross_assimmilates_mg]+","+pb[maintenance_demand_mg]+","+pb[assimilates_mg]+","+pb[PAR_absorbed_daily_umol]+","+pb[PAR_absorbed_leaves_daily_umol]+","+pb[PAR_absorbed_leaf_blades_daily_umol]+pb[assimilates_to_growth_mg]+pb[dry_biomass_growth_mg]);
+		/*	
+		photo.getRow((int)age_in_degree_days_dd).set(plant_number,carbon_assimilation_plant_daily_umol);
+		plantBiomass.getRow((int)age_in_degree_days_dd).set(plant_number,dry_biomass_plant_with_roots_mg/1000);
+		
+		above_ground.getRow((int)age_in_degree_days_dd).set(plant_number,dry_biomass_plant_above_ground_mg/1000); // CHECK IF THIS IS CORRECT
+		Roots_biomass.getRow((int)age_in_degree_days_dd).set(plant_number,dry_biomass_roots/1000); // CHECK IF THIS IS CORRECT
+		dry_biomass_fruits_chart.getRow((int)age_in_degree_days_dd).set(plant_number,dry_biomass_fruits_mg/1000);
+
+		dry_biomass_leaf_blades_chart.getRow((int)age_in_degree_days_dd).set(plant_number,dry_biomass_leaf_blades/1000); // CHECK IF THIS IS CORRECT
+		dry_biomass_internodes_chart.getRow((int)age_in_degree_days_dd).set(plant_number,dry_biomass_internodes/1000); // CHECK IF THIS IS CORRECT
+		dry_biomass_stems_chart.getRow((int)age_in_degree_days_dd).set(plant_number,dry_biomass_stems/1000); // CHECK IF THIS IS CORRECT
+		reserves.getRow((int)age_in_degree_days_dd).set(plant_number,dry_biomass_total_buffer_mg/1000); // CHECK IF THIS IS CORRECT
+		internode_chart.getRow((int)age_in_degree_days_dd).set(plant_number,nr_internodes); // CHECK IF THIS IS CORRECT
+		*/
+	}
+	
+	// update plant leaf and stem area_m2
+	void updateSurfaceArea() {
+		leafArea	=	sum((* l:Leaf, (l.plant_number == plant_number) *)[area_m2]);
+	}
+
+	// update plant absorbed radiation
+	void updateAbsorbedRadiation() {
+		PAR_absorbed_per_plant_leaves_second_umol		=	sum((* l:Leaf, (l.plant_number == plant_number) *)[PAR_incoming_per_organ_umol]);	
+		PAR_absorbed_per_plant_all_second_umol			=	sum((* l:GrowingOrgan, (l.plant_number == plant_number) *)[PAR_incoming_per_organ_umol]);	
+		println("PAR_absorbed_per_plant_all_second_umol "+PAR_absorbed_per_plant_all_second_umol);
+	}
+};

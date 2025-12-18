@@ -1,0 +1,14 @@
+import static java.lang.Math.*;
+
+/*Simple light response curve*/
+
+// Non-rectangular hyperbola as described by Thornley
+class Thornley {
+	double calc(double PAR, double Amax, double quantum_efficiency, double thornley_convexity) {
+		double a = thornley_convexity;
+		double b = -(quantum_efficiency*PAR + Amax);
+		double c = quantum_efficiency*PAR*Amax;
+		return (-b - sqrt(pow(-b,2) - 4*a*c))/(2*a) ;
+	}	
+	
+}

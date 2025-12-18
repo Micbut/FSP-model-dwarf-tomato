@@ -1,0 +1,1746 @@
+import static organs.*;
+import static plant_level.*;
+import static crop_level.*;
+import static light.*;
+import static parameters.*;
+import static parameters_derived.*;
+import static surroundings.*;
+import static MTG_importer.*;
+import de.grogra.xl.util.FloatList;
+
+import java.io.*;
+
+import de.grogra.gpuflux.imp3d.shading.ChannelSPD;
+import de.grogra.gpuflux.imp3d.spectral.IrregularSpectralCurve; //This before was  de.grogra.imp3d.spectral.IrregularSpectralCurve, but the developer changed it
+import de.grogra.gpuflux.scene.experiment.Measurement;
+import java.util.Arrays; 
+import java.util.ArrayList;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.util.Vector;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.io.FileWriter;
+import org.apache.commons.math3.analysis.solvers.BrentSolver;
+import org.apache.commons.math3.analysis.UnivariateFunction;
+
+import java.util.List;
+/******************************************************************************
+Charts
+******************************************************************************/
+/*
+const	DatasetRef	photo							=	new DatasetRef("Plant daily photosynthesis (mmol)");
+const	DatasetRef	plantBiomass					=	new DatasetRef("Plant Biomass (g)");
+const	DatasetRef	MTG_output						=	new DatasetRef("MTG_output");
+const	DatasetRef	Roots_biomass					=	new DatasetRef("roots_biomass(g)");
+const	DatasetRef	above_ground					=	new DatasetRef("above_ground_dry_biomass_plant (g)");
+const	DatasetRef	dry_biomass_leaf_blades_chart	=	new DatasetRef("dry_biomass_leaf_blades(g)");
+const	DatasetRef	dry_biomass_internodes_chart	=	new DatasetRef("dry_biomass_internodes(g)");
+const	DatasetRef	dry_biomass_stems_chart			=	new DatasetRef("dry_biomass_stems(g)");
+const	DatasetRef	reserves						=	new DatasetRef("Plant substrate reserves (g)");
+const	DatasetRef	internode_chart					=	new DatasetRef("internode_chart");
+const	DatasetRef	dry_biomass_fruits_chart					=	new DatasetRef("dry_biomass_fruits_chart");
+*/
+/******************************************************************************
+Tools
+******************************************************************************/
+
+static void read_dynamic_input(String[][] PLANT_DATA) {
+	DENSITY											=	SA_factor_density*Float.parseFloat(PLANT_DATA[0][1]);					
+	
+	COUNTER_CLOCKWISE_ORIENTATION_LEAF_MEAN		=		Float.parseFloat(PLANT_DATA[2][1])*SA_factor_Leaf_counterClockWiseOrientation_mean;						
+	BRANCH_INCLINATION_MEAN							=		Float.parseFloat(PLANT_DATA[3][1])*SA_factor_BRANCH_INCLINATION_MEAN;								
+	
+	BASE_TEMPERATURE								=		Float.parseFloat(PLANT_DATA[5][1]);		
+
+	PHYTOMER_APPEARANCE_RATE_MAIN_STEM_FACTOR_1	=		Float.parseFloat(PLANT_DATA[6][1]);	
+	PHYTOMER_APPEARANCE_RATE_MAIN_STEM_FACTOR_2	=		Float.parseFloat(PLANT_DATA[7][1]);	
+	PHYTOMER_APPEARANCE_RATE_MAIN_STEM_FACTOR_3	=		Float.parseFloat(PLANT_DATA[8][1]);	
+
+	PHYTOMER_APPEARANCE_RATE_SIDE_BRANCHES_FACTOR_1=		Float.parseFloat(PLANT_DATA[9][1]);	
+	PHYTOMER_APPEARANCE_RATE_SIDE_BRANCHES_FACTOR_2=		Float.parseFloat(PLANT_DATA[10][1]);	
+
+	AGE_AT_BRANCHING								=		Float.parseFloat(PLANT_DATA[11][1]);	
+	
+	MAX_NR_INTERNODES_MAIN_STEM_MEAN				=		Integer.parseInt(PLANT_DATA[12][1]);																	
+	MAX_NR_INTERNODES_FIRST_BRANCH_ORDER_MEAN		=		Integer.parseInt(PLANT_DATA[13][1]);																	
+													
+	DRY_BIOMASS_POTENTIAL_MAX_INTERNODE_MG_MEAN	=		Float.parseFloat(PLANT_DATA[15][1]) * SA_factor_Internode_dry_biomass_potential_max_mg;				
+	AGE_MAXIMUM_GROWTH_INTERNODE_DD_MEAN			=		Float.parseFloat(PLANT_DATA[16][1]) ;																
+	GROWTH_DURATION_INTERNODE_DD_MEAN				=		Float.parseFloat(PLANT_DATA[17][1]) ;																
+	
+	SPECIFIC_INTERNODE_LENGTH_FACTOR_1				=		Float.parseFloat(PLANT_DATA[18][1]) ;	
+	SPECIFIC_INTERNODE_LENGTH_FACTOR_2				=		Float.parseFloat(PLANT_DATA[19][1]) ;	
+	SPECIFIC_INTERNODE_LENGTH_THIN_FACTOR_1		=		Float.parseFloat(PLANT_DATA[20][1]) ;	
+	SPECIFIC_INTERNODE_LENGTH_THIN_FACTOR_2		=		Float.parseFloat(PLANT_DATA[21][1]) ;	
+	SPECIFIC_INTERNODE_WIDTH_FACTOR_1				=		Float.parseFloat(PLANT_DATA[22][1]) ;	
+	SPECIFIC_INTERNODE_WIDTH_FACTOR_2				=		Float.parseFloat(PLANT_DATA[23][1]) ;	
+	
+	INTERNODE_TILT_D_MEAN							=		Float.parseFloat(PLANT_DATA[24][1]) ;														
+		
+	POSITION_MAX_WIDTH_MEAN						=		Float.parseFloat(PLANT_DATA[26][1])*SA_factor_POSITION_MAX_WIDTH_MEAN;
+	K1_MEAN										=		Float.parseFloat(PLANT_DATA[27][1])*SA_factor_K1_MEAN;
+	K2_MEAN										=		Float.parseFloat(PLANT_DATA[28][1])*SA_factor_K2_MEAN;
+	P1_MEAN										=		Float.parseFloat(PLANT_DATA[29][1])*SA_factor_P1_MEAN;
+	P2_MEAN										=		Float.parseFloat(PLANT_DATA[30][1])*SA_factor_P2_MEAN;
+	B1_MEAN										=		Float.parseFloat(PLANT_DATA[31][1])*SA_factor_B1_MEAN;
+	B2_MEAN										=		Float.parseFloat(PLANT_DATA[32][1])*SA_factor_B2_MEAN;
+													
+	LEAF_ANGLE_MEAN								=		Float.parseFloat(PLANT_DATA[34][1]);										
+	LEAF_CURVATURE_MEAN							=		Float.parseFloat(PLANT_DATA[35][1]);								
+	GENERIC_PETIOLULE_ANGLE_D_MEAN				=		Float.parseFloat(PLANT_DATA[36][1]);									
+	CURVATURE_BLADES_MEAN						= 		-11.9999+	Float.parseFloat(PLANT_DATA[37][1])*SA_factor_CURVATURE_BLADES_MEAN;						
+	SPECIFIC_PETIOLE_LENGTH_FACTOR_1			=		Float.parseFloat(PLANT_DATA[38][1]);		
+	SPECIFIC_PETIOLE_LENGTH_FACTOR_2			=		Float.parseFloat(PLANT_DATA[39][1]);		
+	SPECIFIC_PETIOLE_WIDTH_FACTOR_1				=		Float.parseFloat(PLANT_DATA[40][1]);		
+	SPECIFIC_PETIOLE_WIDTH_FACTOR_2				=		Float.parseFloat(PLANT_DATA[41][1]);		
+	SLA_FACTOR_1								=		Float.parseFloat(PLANT_DATA[42][1]);		
+	SLA_FACTOR_2								=		Float.parseFloat(PLANT_DATA[43][1]);			
+												
+	//COTYLEDONS
+	BLADES_LW_RATIO_COTYLEDONS					=		Float.parseFloat(PLANT_DATA[45][1]);
+	FRACTION_PETIOLE_COTYLEDONS					=		Float.parseFloat(PLANT_DATA[46][1]);
+	FRACTION_BLADES_COTYLEDONS					=		Float.parseFloat(PLANT_DATA[47][1]);
+
+	//FIRST LEAVES
+	BLADES_LW_RATIO_FIRST_LEAVES				=		Float.parseFloat(PLANT_DATA[49][1])*SA_factor_BLADES_LW_RATIO;
+	PROPORTION_PETIOLULES_FIRST_LEAVES			=		processString(PLANT_DATA[50][1]);
+	PROPORTION_blades_FIRST_LEAVES				=		processString(PLANT_DATA[51][1]);
+	FRACTION_PETIOLE_FIRST_LEAVES				=		Float.parseFloat(PLANT_DATA[52][1]);
+	FRACTION_PETIOLULE_FIRST_LEAVES				=		Float.parseFloat(PLANT_DATA[53][1]);
+	FRACTION_BLADES_FIRST_LEAVES				=		Float.parseFloat(PLANT_DATA[54][1]);
+	DRY_BIOMASS_POTENTIAL_MAX_FIRST_LEAVES_MG	=		Float.parseFloat(PLANT_DATA[55][1]);
+	
+	//UPPER LEAVES
+	BLADES_LW_RATIO_MID_AND_LAST_LEAVES			=		Float.parseFloat(PLANT_DATA[57][1])*SA_factor_BLADES_LW_RATIO;
+	PROPORTION_SEGMENTS_MID_LEAVES				=		processString(PLANT_DATA[58][1]);
+	PROPORTION_PETIOLULES_MID_LEAVES			=		processString(PLANT_DATA[59][1]);
+	PROPORTION_blades_MID_LEAVES				=		processString(PLANT_DATA[60][1]);
+	
+	FRACTION_PETIOLE_MID_AND_LAST_LEAVES		=		Float.parseFloat(PLANT_DATA[61][1]);
+	FRACTION_SEGMENT_MID_AND_LAST_LEAVES		=		Float.parseFloat(PLANT_DATA[62][1]);
+	FRACTION_PETIOLULE_MID_AND_LAST_LEAVES		=		Float.parseFloat(PLANT_DATA[63][1]);
+	FRACTION_BLADES_MID_AND_LAST_LEAVES			=		Float.parseFloat(PLANT_DATA[64][1]);
+	
+	AGE_MAXIMUM_GROWTH_MID_AND_LAST_LEAVES_DD	=		Float.parseFloat(PLANT_DATA[65][1]);
+	GROWTH_DURATION_MID_AND_LAST_LEAVES_DD		=		Float.parseFloat(PLANT_DATA[66][1]);
+
+	PROPORTION_SEGMENTS_LAST_LEAVES				=		processString(PLANT_DATA[68][1]);
+	PROPORTION_PETIOLULES_LAST_LEAVES			=		processString(PLANT_DATA[69][1]);
+	PROPORTION_blades_LAST_LEAVES				=		processString(PLANT_DATA[70][1]);
+	DRY_BIOMASS_POTENTIAL_MAX_MID_AND_LAST_LEAVES_MG	=	Float.parseFloat(PLANT_DATA[71][1])*SA_factor_Leaf_dry_biomass_potential_max_mg;
+
+	//truss
+	DRY_BIOMASS_POTENTIAL_MAX_TRUSS_MG			=		Float.parseFloat(PLANT_DATA[73][1]);
+	AGE_MAXIMUM_GROWTH_TRUSS_DD					=		Float.parseFloat(PLANT_DATA[74][1]);
+	GROWTH_DURATION_TRUSS_DD					=		Float.parseFloat(PLANT_DATA[75][1]);
+	
+	//fruit
+	FIRST_FRUIT_APPEARANCE_DELAY				=		Float.parseFloat(PLANT_DATA[77][1]);
+	DELAY_FLOWER_APPEARANCE						=		Float.parseFloat(PLANT_DATA[78][1]);
+	RIPENING_DD									=		Float.parseFloat(PLANT_DATA[79][1]);
+	DRY_BIOMASS_POTENTIAL_MAX_FRUIY_MG_MEAN	=		Float.parseFloat(PLANT_DATA[80][1]);
+	AGE_MAXIMUM_GROWTH_FRUIT_DD_MEAN			=		Float.parseFloat(PLANT_DATA[81][1]);	
+	GROWTH_DURATION_FRUIT_DD_MEAN				=		Float.parseFloat(PLANT_DATA[82][1]);	
+	FRUITS_PER_TRUSS							=		Integer.parseInt(PLANT_DATA[83][1]);			
+	DRY_WEIGHT_TO_BIOMASS_FACOTR_1				=		Float.parseFloat(PLANT_DATA[84][1]);	
+	DRY_WEIGHT_TO_BIOMASS_FACOTR_2				=		Float.parseFloat(PLANT_DATA[85][1]);	
+	
+	ROOT_FRACTION								=		Float.parseFloat(PLANT_DATA[87][1]);	
+	
+	C_Q_10_MAINTENANCE_RESPIRATION 				=		Float.parseFloat(PLANT_DATA[89][1]);
+	F											=		Float.parseFloat(PLANT_DATA[90][1]);
+	MAINTENANCE_RESPIRATION_LEAF				=		Float.parseFloat(PLANT_DATA[91][1]);
+	MAINTENANCE_RESPIRATION_STEM				=		Float.parseFloat(PLANT_DATA[92][1]);
+	MAINTENANCE_RESPIRATION_FRUIT				=		Float.parseFloat(PLANT_DATA[93][1]);
+	MAINTENANCE_RESPIRATION_ROOT				=		Float.parseFloat(PLANT_DATA[94][1]);
+
+	GROWTH_RESPIRATION_LEAF						=		Float.parseFloat(PLANT_DATA[95][1]);
+	GROWTH_RESPIRATION_STEM						=		Float.parseFloat(PLANT_DATA[96][1]);
+	GROWTH_RESPIRATION_FRUIT					=		Float.parseFloat(PLANT_DATA[97][1]);
+	GROWTH_RESPIRATION_ROOT						=		Float.parseFloat(PLANT_DATA[98][1]);
+	
+	CONVERSION_FACTOR_CO2_TO_CHO				=		Float.parseFloat(PLANT_DATA[99][1]);
+
+	MAX_BUFFER_PERCENTAGE						=		Float.parseFloat(PLANT_DATA[100][1]);
+
+	treshold_fall								=		Float.parseFloat(PLANT_DATA[102][1]);		
+	ASAT										=		Float.parseFloat(PLANT_DATA[103][1]);					
+	QUANTUM_EFFICIENCY_MEAN						=		Float.parseFloat(PLANT_DATA[104][1]);
+	CONVEXITY_MEAN								=		Float.parseFloat(PLANT_DATA[105][1]);
+
+	MAX_IN_BUFFER_PHOTOINIBITION				=		Float.parseFloat(PLANT_DATA[106][1]);
+	MIN_IN_BUFFER_PHOTOINIBITION				=		Float.parseFloat(PLANT_DATA[107][1]);
+	NON_LEAF_PHOTOSYNTHESIS_FACTOR				=		Float.parseFloat(PLANT_DATA[108][1]);
+	/*OPTICAL PROPERTIES */
+
+	WAVELENGTHS									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[0];
+	AMPLITUDES									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[1];
+	
+	//Top of the leaf
+	LEAF_TOP_SPD								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[2];
+	LEAF_TOP_SPT								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[3];
+	
+	//Bottom of the leaf
+	LEAF_BOTTOM_SPD								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[4];
+	LEAF_BOTTOM_SPT								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[5];
+	
+	//Stem
+	INTERNODE_SPD								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[6];
+	INTERNODE_SPT								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[7];
+	
+	//Ripen fruit
+	FRUIT_RIPEN_SPD								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[8];
+	FRUIT_RIPEN_SPT								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[9];	
+	
+	//Unripen fruit
+	FRUIT_UNRIPEN_SPD							=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[10];
+	FRUIT_UNRIPEN_SPT							=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[11];
+	
+	//TILE_SENSOR_TOP:
+	TILE_SENSOR_TOP_SPD							=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[12];
+	TILE_SENSOR_TOP_SPT							=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[13];	
+	
+	//TILE_SENSOR_BOTTOM: 
+	TILE_SENSOR_BOTTOM_SPD						=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[14];
+	TILE_SENSOR_BOTTOM_SPT						=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[15];	
+	
+	//GENERIC_OBJECT: walls/etc
+	CUBE_SPD							=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[16];
+	CUBE_SPT							=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[17];	
+
+	CEILING_SPD									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[18];
+	CEILING_SPT									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[19];
+
+	FLOOR_SPD									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[20];
+	FLOOR_SPT									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[21];
+	
+	WALL_SPD									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[22];
+	WALL_SPT									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[23];
+
+
+	if (LIGHT_SENSOR)(CAMERA_XYZ				=	readCSV(PATH_INPUT+LIGHT_SENSOR_POSITION_FILE)); /*CAN THIS BE DECLARED OUTSIDE?*/
+
+}
+
+static void read_static_input(String[][] PLANT_DATA) {
+	DENSITY										=		SA_factor_density*Float.parseFloat(PLANT_DATA[0][1]);					
+	AVERAGE_TEMP								=		SA_factor_temperature*Float.parseFloat(PLANT_DATA[1][1]);			//(C); average temperature in Celsius
+//INTERNODE 
+	SPECIFIC_INTERNODE_LENGTH_FACTOR_1			=		Float.parseFloat(PLANT_DATA[3][1]) ;	
+	SPECIFIC_INTERNODE_LENGTH_FACTOR_2			=		Float.parseFloat(PLANT_DATA[4][1]) ;	
+	SPECIFIC_INTERNODE_LENGTH_THIN_FACTOR_1		=		Float.parseFloat(PLANT_DATA[5][1]) ;	
+	SPECIFIC_INTERNODE_LENGTH_THIN_FACTOR_2		=		Float.parseFloat(PLANT_DATA[6][1]) ;	
+	SPECIFIC_INTERNODE_WIDTH_FACTOR_1			=		Float.parseFloat(PLANT_DATA[7][1]) ;	
+	SPECIFIC_INTERNODE_WIDTH_FACTOR_2			=		Float.parseFloat(PLANT_DATA[8][1]) ;	
+//LEAFLETS	
+	POSITION_MAX_WIDTH_MEAN						=		Float.parseFloat(PLANT_DATA[10][1])*SA_factor_POSITION_MAX_WIDTH_MEAN;		
+	K1_MEAN										=		Float.parseFloat(PLANT_DATA[11][1])*SA_factor_K1_MEAN;						
+	K2_MEAN										=		Float.parseFloat(PLANT_DATA[12][1])*SA_factor_K2_MEAN;				
+	P1_MEAN										=		Float.parseFloat(PLANT_DATA[13][1])*SA_factor_P1_MEAN;						
+	P2_MEAN										=		Float.parseFloat(PLANT_DATA[14][1])*SA_factor_P2_MEAN;						
+	B1_MEAN										=		Float.parseFloat(PLANT_DATA[15][1])*SA_factor_B1_MEAN;						
+	B2_MEAN										=		Float.parseFloat(PLANT_DATA[16][1])*SA_factor_B2_MEAN;	
+//LEAF GENERAL	
+	LEAF_CURVATURE_MEAN							=		Float.parseFloat(PLANT_DATA[18][1]);							
+	GENERIC_PETIOLULE_ANGLE_D_MEAN				=		Float.parseFloat(PLANT_DATA[19][1]);												
+	CURVATURE_BLADES_MEAN						=		-11.99999+	Float.parseFloat(PLANT_DATA[20][1])*SA_factor_CURVATURE_BLADES_MEAN;				
+	SPECIFIC_PETIOLE_LENGTH_FACTOR_1			=		Float.parseFloat(PLANT_DATA[21][1]);		
+	SPECIFIC_PETIOLE_LENGTH_FACTOR_2			=		Float.parseFloat(PLANT_DATA[22][1]);		
+	SPECIFIC_PETIOLE_WIDTH_FACTOR_1				=		Float.parseFloat(PLANT_DATA[23][1]);		
+	SPECIFIC_PETIOLE_WIDTH_FACTOR_2				=		Float.parseFloat(PLANT_DATA[24][1]);		
+	SLA_MM_MG									=		Float.parseFloat(PLANT_DATA[25][1]);		
+	// cotyledons			
+	
+	BLADES_LW_RATIO_COTYLEDONS					=		Float.parseFloat(PLANT_DATA[28][1]);
+	FRACTION_PETIOLE_COTYLEDONS					=		Float.parseFloat(PLANT_DATA[29][1]);
+	FRACTION_BLADES_COTYLEDONS					=		Float.parseFloat(PLANT_DATA[30][1]);
+
+	//FIRST LEAVES
+	BLADES_LW_RATIO_FIRST_LEAVES				=		Float.parseFloat(PLANT_DATA[32][1])*SA_factor_BLADES_LW_RATIO;
+	PROPORTION_PETIOLULES_FIRST_LEAVES			=		processString(PLANT_DATA[33][1]);
+	PROPORTION_blades_FIRST_LEAVES				=		processString(PLANT_DATA[34][1]);
+	FRACTION_PETIOLE_FIRST_LEAVES				=		Float.parseFloat(PLANT_DATA[35][1]);
+	FRACTION_PETIOLULE_FIRST_LEAVES				=		Float.parseFloat(PLANT_DATA[36][1]);
+	FRACTION_BLADES_FIRST_LEAVES				=		Float.parseFloat(PLANT_DATA[37][1]);
+	
+	//UPPER LEAVES
+	BLADES_LW_RATIO_MID_AND_LAST_LEAVES			=		Float.parseFloat(PLANT_DATA[39][1])*SA_factor_BLADES_LW_RATIO;
+	PROPORTION_SEGMENTS_MID_LEAVES				=		processString(PLANT_DATA[40][1]);
+	PROPORTION_PETIOLULES_MID_LEAVES			=		processString(PLANT_DATA[41][1]);
+	PROPORTION_blades_MID_LEAVES				=		processString(PLANT_DATA[42][1]);
+	FRACTION_PETIOLE_MID_AND_LAST_LEAVES		=		Float.parseFloat(PLANT_DATA[43][1]);
+	FRACTION_SEGMENT_MID_AND_LAST_LEAVES		=		Float.parseFloat(PLANT_DATA[44][1]);
+	FRACTION_PETIOLULE_MID_AND_LAST_LEAVES		=		Float.parseFloat(PLANT_DATA[45][1]);
+	FRACTION_BLADES_MID_AND_LAST_LEAVES			=		Float.parseFloat(PLANT_DATA[46][1]);
+	
+	//LEAF rank 4 and higher
+	PROPORTION_SEGMENTS_LAST_LEAVES				=		processString(PLANT_DATA[48][1]);
+	PROPORTION_PETIOLULES_LAST_LEAVES			=		processString(PLANT_DATA[49][1]);
+	PROPORTION_blades_LAST_LEAVES				=		processString(PLANT_DATA[50][1]);
+	
+	//ROOT
+	ROOT_FRACTION								=		Float.parseFloat(PLANT_DATA[52][1]);	
+	
+	//CARBON
+	C_Q_10_MAINTENANCE_RESPIRATION 				=		Float.parseFloat(PLANT_DATA[54][1]);
+	F											=		Float.parseFloat(PLANT_DATA[55][1]);
+	RELATIVE_GROWTH_RATE_LAST_5_DAYS			=		Float.parseFloat(PLANT_DATA[56][1]);
+	MAINTENANCE_RESPIRATION_LEAF				=		Float.parseFloat(PLANT_DATA[57][1]);
+	
+	MAINTENANCE_RESPIRATION_STEM				=		Float.parseFloat(PLANT_DATA[58][1]);
+	
+	MAINTENANCE_RESPIRATION_ROOT				=		Float.parseFloat(PLANT_DATA[59][1]);
+	
+	CONVERSION_FACTOR_CO2_TO_CHO				=		Float.parseFloat(PLANT_DATA[60][1]);	
+
+	ASAT										=		Float.parseFloat(PLANT_DATA[61][1]);					
+	QUANTUM_EFFICIENCY_MEAN						=		Float.parseFloat(PLANT_DATA[62][1]);
+	CONVEXITY_MEAN								=		Float.parseFloat(PLANT_DATA[63][1]);
+	NON_LEAF_PHOTOSYNTHESIS_FACTOR				=		Float.parseFloat(PLANT_DATA[64][1]);
+	
+	/*OPTICAL PROPERTIES  - all the values are Temporary set to zero*/
+
+	WAVELENGTHS									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[0];
+	AMPLITUDES									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[1];
+	
+	//Top of the leaf
+	LEAF_TOP_SPD								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[2];
+	LEAF_TOP_SPT								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[3];
+	
+	//Bottom of the leaf
+	LEAF_BOTTOM_SPD								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[4];
+	LEAF_BOTTOM_SPT								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[5];
+	
+	//Stem
+	INTERNODE_SPD								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[6];
+	INTERNODE_SPT								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[7];
+	
+	//Ripen fruit
+	FRUIT_RIPEN_SPD								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[8];
+	FRUIT_RIPEN_SPT								=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[9];	
+	
+	//Unripen fruit
+	FRUIT_UNRIPEN_SPD							=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[10];
+	FRUIT_UNRIPEN_SPT							=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[11];
+	
+	//TILE_SENSOR_TOP:
+	TILE_SENSOR_TOP_SPD							=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[12];
+	TILE_SENSOR_TOP_SPT							=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[13];	
+	
+	//TILE_SENSOR_BOTTOM: 
+	TILE_SENSOR_BOTTOM_SPD						=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[14];
+	TILE_SENSOR_BOTTOM_SPT						=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[15];	
+	
+	//GENERIC_OBJECT: walls/etc
+	CUBE_SPD							=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[16];
+	CUBE_SPT							=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[17];	
+
+	CEILING_SPD									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[18];
+	CEILING_SPT									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[19];
+
+	FLOOR_SPD									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[20];
+	FLOOR_SPT									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[21];
+	
+	WALL_SPD									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[22];
+	WALL_SPT									=	LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES_VALUES[23];
+}
+
+
+static String[][] readCSV(String input) throws FileNotFoundException, IOException {
+	ArrayList data = new ArrayList();
+	BufferedReader br = new BufferedReader(new FileReader(input));
+	String line = "";
+	String csvSplitBy = ",";	// separator
+	int nrLineToSkip = 2;	// skip first lines: header
+	for (int r = 0; r < nrLineToSkip; r++)
+	{
+		line = br.readLine();
+	}
+	while (line != null) 
+	{
+		//line = line.replaceAll("-", "");
+		data.add(line.split(csvSplitBy, -1));	// -1: include empty cells
+		line = br.readLine();
+	}
+	return (String[][]) data.toArray(new String[data.size()][]);
+}
+
+
+/*Support functions for outputing files*/
+
+protected static void export2D_image(String file_name){
+
+		int width = 600;	//1600
+		int height = 300;	//1600
+		if (dynamicModel)	{
+			if		(counterOfImages<10){makeRenderedImage(PATH_OUTPUT+PATH_RENDERING_OUT+file_name+"_"+"step000" +counterOfImages+".png", width, height);}
+			else if (counterOfImages<100){makeRenderedImage(PATH_OUTPUT+PATH_RENDERING_OUT+file_name+"_"+"step00" +counterOfImages+".png", width, height);}
+			else if (counterOfImages<1000){makeRenderedImage(PATH_OUTPUT+PATH_RENDERING_OUT+file_name+"_"+"step0" +counterOfImages+".png", width, height);}
+			counterOfImages+=1;
+		}else{makeRenderedImage(PATH_OUTPUT+PATH_RENDERING_OUT+file_name+".png", width, height);}			
+		println(time + " and "+ counterOfImages);
+	}
+
+// save outputs of static model to a csv file
+//static void exportStaticToFile(String file_name) {
+	// set the output file, where the computed values should be stored
+	//PrintWriter out = new PrintWriter(new FileWriter(PATH_OUTPUT+PATH_STATIC_OUT+"_"+file_name+".csv", true));
+	// header	
+	
+	// //      out.println("Plant number, PAR absorbed (umol/s),PAR absorbed just leaves (umol/s), CO2 assimilation (umol/s), CO2 assimilation just leaves (umol/s), gross_assimmilates_mg,gross_assimmilates_just_leaves_mg, maintenance_demand_mg,assimilates_mg, assimilates_if_just_leaves_mg, Leaf area");
+	//[		
+	//	p:PlantBase ::> {
+	//		out.println(p[plant_number]+","+p[PAR_absorbed_per_plant_all_second_umol]+","+p[PAR_absorbed_per_plant_leaves_second_umol]+","+p[carbon_assimilation_plant_second_umol]+","+p[carbon_assimilation_plant_leaves_second_umol]+","+p[gross_assimmilates_mg]+","+p[gross_assimmilates_just_leaves_mg]+","+p[maintenance_demand_mg]+","+p[assimilates_mg]+","+p[assimilates_if_just_leaves_mg]+","+p[leafArea]);
+	//	}
+	//]	  				   
+
+	/*
+        out.println("file_name,plant_density,plantNb,organ_type,age_in_degree_days_dd of plant,age_in_days_d of plant,Organ_ID,rank,order,absorbedPAR [umol s^-1],photosynthesis_rate_umolm2s,dry_biomass_mg[mg],assimilates_and_reserve_pool_mg],dry_biomass_growth_mg for dynamic,area_m2[m^2],area_m2 of just blades (not segments),SLA,totalLeafletMass");
+ 
+
+	[
+		(* g:GrowingOrgan, (g.organ_type != 4 ) *)  ::> {
+			out.println(file_name+","+DENSITY+","+g[plant_number]+","+g[organ_type]+","+g[pb][age_in_degree_days_dd]+","+g[pb][age_in_days_d]+","+g+","+g[rank]+","+g[order]+","+g[PAR_incoming_per_organ_umol]+","+g[photosynthesis_rate_umolm2s]+","+g[dry_biomass_mg]+","+g[pb][dry_biomass_assimilates_and_available_buffer_mg]+","+g[dry_biomass_growth_mg]+","+g[area_m2]);
+		}
+		g:Leaf ::> {
+			out.println(file_name+","+DENSITY+","+g[plant_number]+","+g[organ_type]+","+g[pb][age_in_degree_days_dd]+","+g[pb][age_in_days_d]+","+g+","+g[rank]+","+g[order]+","+g[PAR_incoming_per_organ_umol]+","+g[photosynthesis_rate_umolm2s]+","+g[dry_biomass_mg]+","+g[pb][dry_biomass_assimilates_and_available_buffer_mg]+","+g[dry_biomass_growth_mg]+","+g[area_m2]+","+g[area_m2bladesTotal]+","+g[SLA]+","+g[total_blades_dry_biomass_mg]);
+		}
+	]*/
+	
+//	out.flush();
+//	out.close();
+//}
+
+static void resetFilesDynamic(String file_name) {
+	PrintWriter out_dynamic = new PrintWriter(new FileWriter(PATH_OUTPUT + PATH_DYNAMIC_OUT_ORGAN +"Organ_"+file_name+".csv", false));
+	PrintWriter out_dynamic_crop = new PrintWriter(new FileWriter(PATH_OUTPUT + PATH_DYNAMIC_OUT_CROP +"Crop_"+file_name+".csv", false));
+	PrintWriter out_dynamic_plant = new PrintWriter(new FileWriter(PATH_OUTPUT + PATH_DYNAMIC_OUT_PLANT +"Plant_"+file_name+".csv", false));
+	PrintWriter out_sensor_below_canopy = new PrintWriter(new FileWriter(PATH_OUTPUT+PATH_SENSOR_OUT+SENSORS_BELOW_CANOPY_OUTPUT+"_"+file_name+".csv", false));
+
+    out_dynamic.println("file_name,plant_density,plantNb,organ_type,age_in_degree_days_dd of plant,age_in_days_d of plant,Organ_ID,rank,order,absorbedPAR [umol s^-1],photosynthesis_rate_umolm2s,dry_biomass_mg[mg],assimilates_and_reserve_pool_mg],dry_biomass_growth_mg for dynamic,area_m2[m^2],area_m2 of just blades (not segments),SLA,totalLeafletMass,fruit_dry_biomass_mg,fruit_age_mg");
+    out_dynamic_crop.println("file_name,plant_density,age_in_days_d,age_in_degree_days_dd,avg_dry_biomass_plant_with_roots_plant_daly_mg, gross photosynthesis CH2O mg,maintenance CH2O mg,avg_cumulative_PAR_absorbed_per_plant_umol,avg_cumulative_gross_assimmilates_plant_mg,avg_cumulative_assimilates_plant_mg");  
+    out_dynamic_plant.println("file_name,plant_density,plant_number,age_in_days_d,age_in_degree_days_dd,dry_biomass_leaf_blades_mg,leaf_blade_area_m2,dry_biomass_leaf_blades_order_0_mg,leaf_blade_area_order_0_m2,dry_biomass_leaf_blades_order_1_mg,leaf_blade_area_order_1_m2,dry_biomass_leaves_mg,leaf_area_m2,dry_biomass_leaves_0_mg,leaf_area_order_0_m2,dry_biomass_leaves_1_mg,leaf_area_order_1_m2,dry_biomass_stems_mg,dry_biomass_internodes_mg,dry_biomass_internodes_order_0_mg,dry_biomass_internodes_order_1_mg, dry_biomass_fruits_mg,fresh_biomass_fruits_mg, fresh_biomass_fruits_harvested_mg,dry_biomass_plant_above_ground_mg, dry_biomass_roots,dry_biomass_truss_mg, gross photosynthesis CH2O mg,maintenance CH2O mg, assimilates_mg, PAR_absorbed_daily_umol, PAR_absorbed_leaves_daily_umol, cumulative_PAR_absorbed_per_plant_umol, cumulative_gross_assimmilates_plant_mg, cumulative_assimilates_plant_mg");
+    out_sensor_below_canopy.println("Tile Number, Tile x cohordinate [m], Tile y cohordinate [m],Tile z cohordinate [m],absorbedPARTile [umol^s-1],absorbedPARTilem2 [umol m^-2 m^-1],Thermal time[dd]");
+
+	out_dynamic.flush();
+	out_dynamic_crop.flush();
+	out_dynamic_plant.flush();
+	out_dynamic.close();
+	out_dynamic_crop.close();
+	out_dynamic_plant.close();
+	out_sensor_below_canopy.flush();
+	out_sensor_below_canopy.close();
+}
+static void resetFilesStatic(String file_name) {
+	PrintWriter out_static = new PrintWriter(new FileWriter(PATH_OUTPUT + PATH_STATIC_OUT_ORGAN +"Organ_"+file_name+".csv", false));
+	PrintWriter out_static_crop = new PrintWriter(new FileWriter(PATH_OUTPUT + PATH_STATIC_OUT_CROP +"Crop_"+file_name+".csv", false));
+	PrintWriter out_static_plant = new PrintWriter(new FileWriter(PATH_OUTPUT + PATH_STATIC_OUT_PLANT +"Plant_"+file_name+".csv", false));
+
+    out_static.println("file_name,plant_density,plantNb,organ_type,age_in_degree_days_dd of plant,age_in_days_d of plant,Organ_ID,rank,order,absorbedPAR [umol s^-1],photosynthesis_rate_umolm2s,dry_biomass_mg[mg],assimilates_and_reserve_pool_mg],dry_biomass_growth_mg for dynamic,area_m2[m^2],area_m2 of just blades (not segments),SLA,totalLeafletMass,fruit_dry_biomass_mg,fruit_age_mg");
+    out_static_crop.println("file_name,plant_density,age_in_days_d,age_in_degree_days_dd,avg_dry_biomass_plant_with_roots_plant_daly_mg, gross photosynthesis CH2O mg,maintenance CH2O mg,avg_cumulative_PAR_absorbed_per_plant_umol,avg_cumulative_gross_assimmilates_plant_mg,avg_cumulative_assimilates_plant_mg");  
+    out_static_plant.println("file_name,plant_density,plant_number,age_in_days_d,age_in_degree_days_dd,dry_biomass_leaf_blades_mg,leaf_blade_area_m2,dry_biomass_leaf_blades_order_0_mg,leaf_blade_area_order_0_m2,dry_biomass_leaf_blades_order_1_mg,leaf_blade_area_order_1_m2,dry_biomass_leaves_mg,leaf_area_m2,dry_biomass_leaves_0_mg,leaf_area_order_0_m2,dry_biomass_leaves_1_mg,leaf_area_order_1_m2,dry_biomass_stems_mg,dry_biomass_internodes_mg,dry_biomass_internodes_order_0_mg,dry_biomass_internodes_order_1_mg, dry_biomass_fruits_mg,fresh_biomass_fruits_mg, fresh_biomass_fruits_harvested_mg,dry_biomass_plant_above_ground_mg, dry_biomass_roots,dry_biomass_truss_mg, gross photosynthesis CH2O mg,maintenance CH2O mg, assimilates_mg, PAR_absorbed_daily_umol, PAR_absorbed_leaves_daily_umol, cumulative_PAR_absorbed_per_plant_umol, cumulative_gross_assimmilates_plant_mg, cumulative_assimilates_plant_mg");
+
+	out_static.flush();
+	out_static_crop.flush();
+	out_static_plant.flush();
+	out_static.close();
+	out_static_crop.close();
+	out_static_plant.close();
+}
+
+// save outputs of dynamic model to a csv file
+static void exportDynamicToFile(String file_name) throws IOException {
+    File file = new File(PATH_OUTPUT + PATH_DYNAMIC_OUT_ORGAN +"Organ_"+file_name+".csv");
+    File file_crop = new File(PATH_OUTPUT + PATH_DYNAMIC_OUT_CROP +"Crop_"+file_name+".csv");
+    File file_plant = new File(PATH_OUTPUT + PATH_DYNAMIC_OUT_PLANT +"Plant_"+file_name+".csv");
+    boolean fileExists = file.exists();
+    boolean fileExists_crop = file_crop.exists();
+    boolean fileExists_plant = file_plant.exists();
+    PrintWriter out = new PrintWriter(new FileWriter(file, true));
+    PrintWriter out_crop = new PrintWriter(new FileWriter(file_crop, true));
+    PrintWriter out_plant = new PrintWriter(new FileWriter(file_plant, true));
+
+    // Write header only if the file does not already exist
+    if (!fileExists) {
+        out.println("file_name,plant_density,plantNb,organ_type,age_in_degree_days_dd of plant,age_in_days_d of plant,Organ_ID,rank,order,absorbedPAR [umol s^-1],photosynthesis_rate_umolm2s,dry_biomass_mg[mg],assimilates_and_reserve_pool_mg],dry_biomass_growth_mg for dynamic,area_m2[m^2],area_m2 of just blades (not segments),SLA,totalLeafletMass,fruit_dry_biomass_mg,fruit_age_mg");
+    }
+    
+    if (!fileExists_crop) {
+    	out_crop.println("file_name,plant_density,age_in_days_d,age_in_degree_days_dd,avg_dry_biomass_plant_with_roots_plant_daly_mg, gross photosynthesis CH2O mg,maintenance CH2O mg,avg_cumulative_PAR_absorbed_per_plant_umol,avg_cumulative_gross_assimmilates_plant_mg,avg_cumulative_assimilates_plant_mg");  
+    }    
+    
+    if (!fileExists_plant) {
+    	out_plant.println("file_name,plant_density,plant_number,age_in_days_d,age_in_degree_days_dd,dry_biomass_leaf_blades_mg,leaf_blade_area_m2,dry_biomass_leaf_blades_order_0_mg,leaf_blade_area_order_0_m2,dry_biomass_leaf_blades_order_1_mg,leaf_blade_area_order_1_m2,dry_biomass_leaves_mg,leaf_area_m2,dry_biomass_leaves_0_mg,leaf_area_order_0_m2,dry_biomass_leaves_1_mg,leaf_area_order_1_m2,dry_biomass_stems_mg,dry_biomass_internodes_mg,dry_biomass_internodes_order_0_mg,dry_biomass_internodes_order_1_mg, dry_biomass_fruits_mg,fresh_biomass_fruits_mg, fresh_biomass_fruits_harvested_mg,dry_biomass_plant_above_ground_mg, dry_biomass_roots,dry_biomass_truss_mg, gross photosynthesis CH2O mg,maintenance CH2O mg, assimilates_mg, PAR_absorbed_daily_umol, PAR_absorbed_leaves_daily_umol, cumulative_PAR_absorbed_per_plant_umol, cumulative_gross_assimmilates_plant_mg, cumulative_assimilates_plant_mg");
+    }    
+
+	[
+		(* g:GrowingOrgan, (g.organ_type != 4 ) *)  ::> {
+			out.println(file_name+","+DENSITY+","+g[plant_number]+","+g[organ_type]+","+g[pb][age_in_degree_days_dd]+","+g[pb][age_in_days_d]+","+g+","+g[rank]+","+g[order]+","+g[PAR_incoming_per_organ_umol]+","+g[photosynthesis_rate_umolm2s]+","+g[dry_biomass_mg]+","+g[pb][dry_biomass_assimilates_and_available_buffer_mg]+","+g[dry_biomass_growth_mg]+","+g[area_m2]);
+		}
+		g:Leaf ::> {
+			out.println(file_name+","+DENSITY+","+g[plant_number]+","+g[organ_type]+","+g[pb][age_in_degree_days_dd]+","+g[pb][age_in_days_d]+","+g+","+g[rank]+","+g[order]+","+g[PAR_incoming_per_organ_umol]+","+g[photosynthesis_rate_umolm2s]+","+g[dry_biomass_mg]+","+g[pb][dry_biomass_assimilates_and_available_buffer_mg]+","+g[dry_biomass_growth_mg]+","+g[area_m2]+","+g[area_m2bladesTotal]+","+g[SLA]+","+g[total_blades_dry_biomass_mg]);
+		}
+		
+		g:Fruits ::> {
+			out.println(file_name+","+DENSITY+","+g[plant_number]+","+g[organ_type]+","+g[pb][age_in_degree_days_dd]+","+g[pb][age_in_days_d]+","+g+","+g[rank]+","+g[order]+","+g[PAR_incoming_per_organ_umol]+","+g[photosynthesis_rate_umolm2s]+","+g[dry_biomass_mg]+","+g[pb][dry_biomass_assimilates_and_available_buffer_mg]+","+g[dry_biomass_growth_mg]+","+g[area_m2]+","+" "+","+" "+","+" "+","+g[string_array_fruit_dry_biomass_mg]+","+g[string_array_fruit_age_mg]);
+		}
+		cb:CropBase ::> {
+			out_crop.println(file_name+","+DENSITY+","+cb[age_in_days_d]+","+cb[age_in_degree_days_dd]+","+cb[avg_dry_biomass_plant_with_roots_plant_daly_mg]+","+cb[avg_gross_assimmilates_plant_daily_mg]+","+cb[avg_maintenance_demand_plant_daily_mg]+","+cb[avg_cumulative_PAR_absorbed_per_plant_umol]+","+cb[avg_cumulative_gross_assimmilates_plant_mg]+","+cb[avg_cumulative_assimilates_plant_mg]);  
+
+		}
+		pb:PlantBase ::> {
+			out_plant.println(file_name+","+DENSITY+","+pb[plant_number]+","+pb[age_in_days_d]+","+pb[age_in_degree_days_dd]+","+pb[dry_biomass_leaf_blades_mg]+","+pb[leaf_blade_area_m2]+","+pb[dry_biomass_leaf_blades_order_0_mg]+","+pb[leaf_blade_area_order_0_m2]+","+pb[dry_biomass_leaf_blades_order_1_mg]+","+pb[leaf_blade_area_order_1_m2]+","+pb[dry_biomass_leaves_mg]+","+pb[leaf_area_m2]+","+pb[dry_biomass_leaves_0_mg]+","+pb[leaf_area_order_0_m2]+","+pb[dry_biomass_leaves_1_mg]+","+pb[leaf_area_order_1_m2]+","+pb[dry_biomass_stems]+","+pb[dry_biomass_internodes_mg]+","+pb[dry_biomass_internodes_0_mg]+","+pb[dry_biomass_internodes_1_mg]+","+pb[dry_biomass_fruits_mg]+","+pb[fresh_biomass_fruits_mg]+","+pb[fresh_biomass_fruits_harvested_mg]+","+pb[dry_biomass_plant_above_ground_mg]+","+pb[dry_biomass_roots]+","+pb[dry_biomass_truss_mg]+","+pb[gross_assimmilates_mg]+","+pb[maintenance_demand_mg]+","+pb[assimilates_mg]+","+pb[PAR_absorbed_per_plant_all_second_umol]+","+pb[PAR_absorbed_per_plant_leaves_second_umol]+","+pb[cumulative_PAR_absorbed_per_plant_umol]+","+pb[cumulative_gross_assimmilates_plant_mg]+","+pb[cumulative_assimilates_plant_mg]); 
+
+		}
+	]
+	
+	out.flush();	
+	out_crop.flush();	
+	out_plant.flush();
+	out.close();
+	out_crop.close();
+	out_plant.close();
+}
+
+// save outputs of dynamic model to a csv file
+static void exportStaticToFile(String file_name) throws IOException {
+    File file = new File(PATH_OUTPUT + PATH_STATIC_OUT_ORGAN +"Organ_"+file_name+".csv");
+    File file_crop = new File(PATH_OUTPUT + PATH_STATIC_OUT_CROP +"Crop_"+file_name+".csv");
+    File file_plant = new File(PATH_OUTPUT + PATH_STATIC_OUT_PLANT +"Plant_"+file_name+".csv");
+    boolean fileExists = file.exists();
+    boolean fileExists_crop = file_crop.exists();
+    boolean fileExists_plant = file_plant.exists();
+    PrintWriter out = new PrintWriter(new FileWriter(file, true));
+    PrintWriter out_crop = new PrintWriter(new FileWriter(file_crop, true));
+    PrintWriter out_plant = new PrintWriter(new FileWriter(file_plant, true));
+
+    // Write header only if the file does not already exist
+    if (!fileExists) {
+        out.println("file_name,plant_density,plantNb,organ_type,age_in_degree_days_dd of plant,age_in_days_d of plant,Organ_ID,rank,order,absorbedPAR [umol s^-1],photosynthesis_rate_umolm2s,dry_biomass_mg[mg],assimilates_and_reserve_pool_mg],dry_biomass_growth_mg for dynamic,area_m2[m^2],area_m2 of just blades (not segments),SLA,totalLeafletMass,fruit_dry_biomass_mg,fruit_age_mg");
+    }
+    
+    if (!fileExists_crop) {
+    	out_crop.println("file_name,plant_density,age_in_days_d,age_in_degree_days_dd,avg_dry_biomass_plant_with_roots_plant_daly_mg, gross photosynthesis CH2O mg,maintenance CH2O mg,avg_cumulative_PAR_absorbed_per_plant_umol,avg_cumulative_gross_assimmilates_plant_mg,avg_cumulative_assimilates_plant_mg");  
+    }    
+    
+    if (!fileExists_plant) {
+    	out_plant.println("file_name,plant_density,plant_number,age_in_days_d,age_in_degree_days_dd,dry_biomass_leaf_blades_mg,leaf_blade_area_m2,dry_biomass_leaf_blades_order_0_mg,leaf_blade_area_order_0_m2,dry_biomass_leaf_blades_order_1_mg,leaf_blade_area_order_1_m2,dry_biomass_leaves_mg,leaf_area_m2,dry_biomass_leaves_0_mg,leaf_area_order_0_m2,dry_biomass_leaves_1_mg,leaf_area_order_1_m2,dry_biomass_stems_mg,dry_biomass_internodes_mg,dry_biomass_internodes_order_0_mg,dry_biomass_internodes_order_1_mg, dry_biomass_fruits_mg,fresh_biomass_fruits_mg, fresh_biomass_fruits_harvested_mg,dry_biomass_plant_above_ground_mg, dry_biomass_roots,dry_biomass_truss_mg, gross photosynthesis CH2O mg,maintenance CH2O mg, assimilates_mg, PAR_absorbed_daily_umol, PAR_absorbed_leaves_daily_umol, cumulative_PAR_absorbed_per_plant_umol, cumulative_gross_assimmilates_plant_mg, cumulative_assimilates_plant_mg");
+    }    
+
+	[
+		(* g:GrowingOrgan, (g.organ_type != 4 ) *)  ::> {
+			out.println(file_name+","+DENSITY+","+g[plant_number]+","+g[organ_type]+","+g[pb][age_in_degree_days_dd]+","+g[pb][age_in_days_d]+","+g+","+g[rank]+","+g[order]+","+g[PAR_incoming_per_organ_umol]+","+g[photosynthesis_rate_umolm2s]+","+g[dry_biomass_mg]+","+g[pb][dry_biomass_assimilates_and_available_buffer_mg]+","+g[dry_biomass_growth_mg]+","+g[area_m2]);
+		}
+		g:Leaf ::> {
+			out.println(file_name+","+DENSITY+","+g[plant_number]+","+g[organ_type]+","+g[pb][age_in_degree_days_dd]+","+g[pb][age_in_days_d]+","+g+","+g[rank]+","+g[order]+","+g[PAR_incoming_per_organ_umol]+","+g[photosynthesis_rate_umolm2s]+","+g[dry_biomass_mg]+","+g[pb][dry_biomass_assimilates_and_available_buffer_mg]+","+g[dry_biomass_growth_mg]+","+g[area_m2]+","+g[area_m2bladesTotal]+","+g[SLA]+","+g[total_blades_dry_biomass_mg]);
+		}
+		
+		g:Fruits ::> {
+			out.println(file_name+","+DENSITY+","+g[plant_number]+","+g[organ_type]+","+g[pb][age_in_degree_days_dd]+","+g[pb][age_in_days_d]+","+g+","+g[rank]+","+g[order]+","+g[PAR_incoming_per_organ_umol]+","+g[photosynthesis_rate_umolm2s]+","+g[dry_biomass_mg]+","+g[pb][dry_biomass_assimilates_and_available_buffer_mg]+","+g[dry_biomass_growth_mg]+","+g[area_m2]+","+" "+","+" "+","+" "+","+g[string_array_fruit_dry_biomass_mg]+","+g[string_array_fruit_age_mg]);
+		}
+		cb:CropBase ::> {
+			out_crop.println(file_name+","+DENSITY+","+cb[age_in_days_d]+","+cb[age_in_degree_days_dd]+","+cb[avg_dry_biomass_plant_with_roots_plant_daly_mg]+","+cb[avg_gross_assimmilates_plant_daily_mg]+","+cb[avg_maintenance_demand_plant_daily_mg]+","+cb[avg_cumulative_PAR_absorbed_per_plant_umol]+","+cb[avg_cumulative_gross_assimmilates_plant_mg]+","+cb[avg_cumulative_assimilates_plant_mg]);  
+
+		}
+		pb:PlantBase ::> {
+			out_plant.println(file_name+","+DENSITY+","+pb[plant_number]+","+pb[age_in_days_d]+","+pb[age_in_degree_days_dd]+","+pb[dry_biomass_leaf_blades_mg]+","+pb[leaf_blade_area_m2]+","+pb[dry_biomass_leaf_blades_order_0_mg]+","+pb[leaf_blade_area_order_0_m2]+","+pb[dry_biomass_leaf_blades_order_1_mg]+","+pb[leaf_blade_area_order_1_m2]+","+pb[dry_biomass_leaves_mg]+","+pb[leaf_area_m2]+","+pb[dry_biomass_leaves_0_mg]+","+pb[leaf_area_order_0_m2]+","+pb[dry_biomass_leaves_1_mg]+","+pb[leaf_area_order_1_m2]+","+pb[dry_biomass_stems]+","+pb[dry_biomass_internodes_mg]+","+pb[dry_biomass_internodes_0_mg]+","+pb[dry_biomass_internodes_1_mg]+","+pb[dry_biomass_fruits_mg]+","+pb[fresh_biomass_fruits_mg]+","+pb[fresh_biomass_fruits_harvested_mg]+","+pb[dry_biomass_plant_above_ground_mg]+","+pb[dry_biomass_roots]+","+pb[dry_biomass_truss_mg]+","+pb[gross_assimmilates_mg]+","+pb[maintenance_demand_mg]+","+pb[assimilates_mg]+","+pb[PAR_absorbed_per_plant_all_second_umol]+","+pb[PAR_absorbed_per_plant_leaves_second_umol]+","+pb[cumulative_PAR_absorbed_per_plant_umol]+","+pb[cumulative_gross_assimmilates_plant_mg]+","+pb[cumulative_assimilates_plant_mg]); 
+
+		}
+	]
+	
+	out.flush();	
+	out_crop.flush();	
+	out_plant.flush();
+	out.close();
+	out_crop.close();
+	out_plant.close();
+}
+
+static void exportSensorsToFile() {
+	// set the output file, where the computed values should be stored
+	PrintWriter out = new PrintWriter(new FileWriter(PATH_OUTPUT+SENSORS_EXPORT+".csv", true));
+	
+	// header
+	out.println("Tile Number, Tile x cohordinate [m], Tile y cohordinate [m],Tile z cohordinate [m],absorbedPARTile [umol^s-1],absorbedPARTilem2 [umol m^-2 m^-1");
+	
+	[
+		ts:TileSensor2 ::> {
+			out.println(ts[nr]+","+ts[x]+","+ts[y]+","+ts[z]+","+ts[absorbedPARTile]+","+ts[absorbedPARTilem2]);
+		}
+	]
+	
+	out.flush();
+	out.close();
+}
+
+static void exportSensorsBelowCanopyToFile(String file_name) throws IOException {
+    File file = new File(PATH_OUTPUT+PATH_SENSOR_OUT+SENSORS_BELOW_CANOPY_OUTPUT+"_"+file_name+".csv");
+    boolean fileExists = file.exists();
+    
+	// set the output file, where the computed values should be stored
+	PrintWriter out = new PrintWriter(new FileWriter(file, true));
+	
+    if (!fileExists) {
+    	out.println("Tile Number, Tile x cohordinate [m], Tile y cohordinate [m],Tile z cohordinate [m],absorbedPARTile [umol^s-1],absorbedPARTilem2 [umol m^-2 m^-1],Thermal time[dd]");
+    }
+		
+	[
+		ts:TileSensor ::> {
+			out.println(ts[nr]+","+ts[x]+","+ts[y]+","+ts[z]+","+ts[absorbedPARTile]+","+ts[absorbedPARTilem2]+","+ts[cb][age_in_degree_days_dd]);
+		}
+	]
+	
+	out.flush();
+	out.close();
+	
+}
+
+static String floatArrayToString(float[] array) {
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < array.length; i++) {
+            result.append(array[i]);
+            if (i < array.length - 1) {
+                result.append("_");
+            }
+        }
+        return result.toString();
+   }
+
+/*
+// save outputs of static model to a csv file in MTG format
+static void exportMTG() {
+// Set the output file, where the computed values should be stored
+        PrintWriter out = new PrintWriter(new FileWriter(PATH_EXPORT + MTG_EXPORT, false));
+
+        // Headers
+        String[] headers = new String[52]; // Size based on the maximum column index used
+
+        headers[column_ID] = "ID";
+        headers[column_order] = "order";
+        headers[column_rank] = "rank";
+        headers[column_probability] = "probability";
+        headers[column_counterClockWiseOrientationSegments] = "column_counterClockWiseOrientationSegments";
+        headers[column_counterClockWiseOrientationSegments_sd] = "column_counterClockWiseOrientationSegments_sd";
+        headers[column_inclination] = "inclination";
+        headers[column_inclination_sd] = "inclination_sd";
+        headers[column_dry_biomass_mg] = "dry_biomass_mg";
+        headers[column_dry_biomass_mg_sd] = "dry_biomass_mg_sd";
+        headers[column_length] = "length";
+        headers[column_length_sd] = "length_sd";
+        headers[column_width] = "width";
+        headers[column_width_sd] = "width_sd";
+        headers[column_degreeDays] = "degreeDays";
+        headers[column_counterClocKWiseOrientation] = "segment_counterClocKWiseOrientation";
+        headers[column_segmentscounterClocKWiseOrientation_sd] = "segmentscounterClocKWiseOrientation_sd";
+        headers[column_segmentsInclination] = "segmentsInclination";
+        headers[column_segmentsInclination_sd] = "segmentsInclination_sd";
+        headers[column_inclinationOnSegmentsPetiolules] = "inclinationOnSegmentsPetiolules";
+        headers[column_inclinationOnSegmentsPetiolules_sd] = "inclinationOnSegmentsPetiolules_sd";
+        headers[column_segmentsLength] = "segmentsLength";
+        headers[column_segmentsLength_sd] = "segmentsLength_sd";
+        headers[column_lengthPetiolules] = "lengthPetiolules";
+        headers[column_lengthPetiolules_sd] = "lengthPetiolules_sd";
+        headers[column_LWRatioblades] = "LWRatioblades";
+        headers[column_LWRatioblades_sd] = "LWRatioblades_sd";
+        headers[column_areablades] = "areablades";
+        headers[column_areablades_sd] = "areablades_sd";
+        headers[column_quantum_efficiency] = "quantum_efficiency";
+        headers[column_Amax] = "Amax";
+        headers[column_TOP_SPD] = "TOP_SPD";
+        headers[column_TOP_SPT] = "TOP_SPT";
+        headers[column_BOTTOM_SPD] = "BOTTOM_SPD";
+        headers[column_BOTTOM_SPT] = "BOTTOM_SPT";
+        headers[column_degreeDaysStorage] = "degreeDaysStorage";
+        headers[column_internodeTrussLength] = "internodeTrussLength";
+        headers[column_internodeTrussdiameter] = "internodeTrussdiameter";
+        headers[column_angleAmongSubsequentFruits] = "angleAmongSubsequentFruits";
+        headers[column_fruitDiameter] = "fruitDiameter";
+        headers[column_internodeTrussAngle] = "internodeTrussAngle";
+        headers[column_fruitNr] = "fruitNr";
+        headers[column_plantRow] = "plantRow";
+        headers[column_plantColumn] = "plantColumn";
+
+
+        // Write headers to CSV
+        for (int i = 0; i < headers.length; i++) {
+            if (headers[i] != null) {
+                out.print(headers[i]);
+                if (i < headers.length - 1) {
+                    out.print(",");
+                }
+            }
+        }
+        
+       String[] rowData = initializeArray(52);
+[
+		g:GrowingOrgan ::> {
+			setValueAtPosition(rowData, column_rank, g[rank]);
+			setValueAtPosition(rowData, column_order,g[order]);
+			
+			println(mergeArrayToCSV(rowData));		    
+			out.println(mergeArrayToCSV(rowData));
+
+		}
+	]
+        out.flush();
+        out.close();
+}
+*/
+
+
+/*Support functions for cloning canopy*/
+
+// module to clone plants
+module CopyPlant ==>  { PlantBase m = first((* PlantBase *)); }  m;
+
+
+/*Support functions for dealing with optical properties*/
+
+static float[][] light_spectrum_and_optical_properties() {
+       
+	//This function is needed to convert the columns of the csv used as input into various arrays
+	int numRows		= LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES.length;
+	int numColumns	= LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[0].length;
+	
+	float[][] data 	= new float[numColumns][];
+        
+	float[] wavelenghts				= new float[numRows];
+	float[] intensities				= new float[numRows];
+	float[] leaf_top_spd			= new float[numRows];
+	float[] leaf_top_spt			= new float[numRows];
+	float[]	leaf_bottom_spd			= new float[numRows];
+	float[]	leaf_bottom_spt			= new float[numRows];
+	float[] internode_spd			= new float[numRows];
+	float[]	internode_spt			= new float[numRows];
+	float[] fruit_ripen_spd			= new float[numRows];
+	float[] fruit_ripen_spt			= new float[numRows];
+	float[] fruit_unripen_spd		= new float[numRows];
+	float[] fruit_unripen_spt		= new float[numRows];
+	float[] tile_sensor_top_spd		= new float[numRows];
+	float[] tile_sensor_top_spt		= new float[numRows];
+	float[] tile_sensor_bottom_spd	= new float[numRows];
+	float[] tile_sensor_bottom_spt	= new float[numRows];
+	float[] cube_spd				= new float[numRows];
+	float[] cube_spt				= new float[numRows];	
+	float[] ceiling_spd				= new float[numRows];
+	float[] ceiling_spt				= new float[numRows];
+	float[] floor_spd				= new float[numRows];
+	float[] floor_spt				= new float[numRows];
+	float[] wall_spd				= new float[numRows];
+	float[] wall_spt				= new float[numRows];
+
+
+	for (int i = 0; i < numRows; i++) {
+		wavelenghts[i]			= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][0]);
+		intensities[i]			= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][1]);
+		leaf_top_spd[i]			= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][2]);
+		leaf_top_spt[i]			= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][3]);
+		leaf_bottom_spd[i]		= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][4]);
+		leaf_bottom_spt[i]		= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][5]);
+		internode_spd[i]		= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][6]);
+		internode_spt[i]		= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][7]);
+		fruit_ripen_spd[i]		= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][8]);
+		fruit_ripen_spt[i]		= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][9]);
+		fruit_unripen_spd[i]	= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][10]);
+		fruit_unripen_spt[i]	= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][11]);	
+		tile_sensor_top_spd[i]	= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][12]);
+		tile_sensor_top_spt[i]	= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][13]);
+		tile_sensor_bottom_spd[i]	= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][14]);
+		tile_sensor_bottom_spt[i]	= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][15]);
+		cube_spd[i]					= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][16]);
+		cube_spt[i]					= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][17]);	
+		ceiling_spd[i]				= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][18]);
+		ceiling_spt[i]				= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][19]);
+		floor_spd[i]				= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][20]);
+		floor_spt[i]				= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][21]);
+		wall_spd[i]				= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][22]);
+		wall_spt[i]				= Float.parseFloat(LIGHT_SPECTRUM_AND_OPTICAL_PROPERTIES[i][23]);
+	}
+	
+	data [0]	= wavelenghts;
+	data [1]	= intensities;
+	data [2]	= leaf_top_spd;
+	data [3]	= leaf_top_spt;
+	data [4]	= leaf_bottom_spd;
+	data [5]	= leaf_bottom_spt;
+	data [6]	= internode_spd;
+	data [7]	= internode_spt;
+	data [8]	= fruit_ripen_spd;
+	data [9]	= fruit_ripen_spt;
+	data [10]	= fruit_unripen_spd;
+	data [11]	= fruit_unripen_spt;
+	data [12]	= tile_sensor_top_spd;
+	data [13]	= tile_sensor_top_spt;
+	data [14]	= tile_sensor_bottom_spd;
+	data [15]	= tile_sensor_bottom_spt;
+	data [16]	= cube_spd;
+	data [17]	= cube_spt;	
+	data [18]	= ceiling_spd;
+	data [19]	= ceiling_spt;
+	data [20]	= floor_spd;
+	data [21]	= floor_spt;
+	data [22]	= wall_spd;
+	data [23]	= wall_spt;
+	
+	return data;
+}
+
+static Phong createLeafShaderTop(float[] wavelengths, float[] leaf_top_spd, float[] leaf_top_spt) {
+
+    // Optical properties for the top of the leaf
+    ChannelSPD leafTopSPD = new ChannelSPD(new IrregularSpectralCurve(wavelengths, leaf_top_spd));
+    ChannelSPD leafTopSPT = new ChannelSPD(new IrregularSpectralCurve(wavelengths, leaf_top_spt));
+    
+    Phong leafTopShader = new Phong();
+    leafTopShader.setDiffuse(leafTopSPD);    
+    leafTopShader.setDiffuseTransparency(leafTopSPT);
+   
+    return leafTopShader;
+}
+
+
+
+/*Support functions for dealing with arrays and matrixes*/
+
+static float[] generateNormalValues(float[] means, float[] standardDeviations) {
+	if (means.length != standardDeviations.length) {
+		throw new IllegalArgumentException("Arrays must be of the same length");
+	}
+
+	float[] normalValues = new float[means.length];
+	for (int i = 0; i < means.length; i++) {
+		normalValues[i] = normal(means[i], standardDeviations[i]);
+	}
+
+	return normalValues;
+}
+
+static double[][] convertToDoubleMatrix(String[][] stringMatrix) {
+	int rows = stringMatrix.length;
+	int cols = stringMatrix[0].length;
+	double[][] doubleMatrix = new double[rows][cols];
+
+	for (int i = 0; i < rows; i++) {
+		for (int j = 0; j < cols; j++) {
+			try {
+				doubleMatrix[i][j] = Double.parseDouble(stringMatrix[i][j]);
+			} catch (NumberFormatException e) {
+				println("Invalid number format at position: [" + i + "][" + j + "]");
+				doubleMatrix[i][j] = 0.0; // Setting the default value to 0.0 in case of an exception
+			}
+		}
+	}
+
+	return doubleMatrix;
+}
+	
+static float [] VectorDivision(float[] array, float divisor) {
+    float[] result = new float[array.length];
+	
+	for (int i = 0; i < array.length; i++) {
+    if (divisor != 0) {
+        result[i] = array[i] / divisor;
+    } else {
+        // Handle division by zero
+        result[i] = Float.NaN; // or throw an exception
+    }
+}
+    return result;
+}
+
+static float [] VectorMultiplication(float[] array, float multiplier) {
+    float[] result = new float[array.length];
+	
+	for (int i = 0; i < array.length; i++) {
+    if (multiplier != 0) {
+        result[i] = array[i] * multiplier;
+    } else {
+        // Handle division by zero
+        result[i] = Float.NaN; // or throw an exception
+    }
+}
+    return result;
+}
+
+static float sumArray(float[] array) {
+    float sum = 0; // Initialize sum variable
+
+    // Iterate through each element of the array and add it to the sum
+    for (float number : array) {
+        sum += number;
+    }
+
+    return sum; // Return the total sum
+}
+
+public static float getLastElement(float[] array) {
+    // Check if the array is empty
+    if (array == null || array.length == 0) {
+        throw new IllegalArgumentException("Array cannot be null or empty");
+    }
+
+    // Return the last element of the array
+    return array[array.length - 1];
+}
+
+public static float[] anyArray(double... values) {
+        float[] newArray = new float[values.length];
+        for (int i = 0; i < values.length; i++) {
+            newArray[i] = values[i];
+        }
+        return newArray;
+    }
+
+// Method to set a value at a specific position
+static void setValueAtPosition(String[] array, int position, String value) {
+	if (position >= 0 && position < array.length) {
+		array[position] = value;
+	} else {
+		throw new ArrayIndexOutOfBoundsException("Position out of array bounds.");
+	}
+}
+
+// Method to merge all values into a single string separated by commas
+static String mergeArrayToCSV(String[] array) {
+	StringBuilder sb = new StringBuilder();
+	for (int i = 0; i < array.length; i++) {
+		sb.append(array[i]);
+		if (i < array.length - 1) {
+			sb.append(",");
+		}
+	}
+	return sb.toString();
+}
+    
+// Method to initialize the array with empty strings
+static String[] initializeArray(int size) {
+	String[] array = new String[size];
+	for (int i = 0; i < size; i++) {
+		array[i] = "";
+	}
+	return array;
+}
+    
+/*Support functions for creating blades*/
+
+// calculate gL for blades shape, Coussement
+static double get_gL(float lnorm) {
+	
+	double k1 = K1_MEAN;//	normal(K1_MEAN,K1_STD);
+	double k2 =K2_MEAN;//	normal(K2_MEAN,K2_STD);
+	double gl_below;
+	double gl_above;
+	double positionMaxWidth =POSITION_MAX_WIDTH_MEAN;
+	
+		if (positionMaxWidth == 0) {
+		positionMaxWidth =0.00001;
+	} else if ( positionMaxWidth == 1) {
+		positionMaxWidth =0.99999;
+	} 
+			
+		gl_below = 1 - Math.pow((positionMaxWidth - lnorm)/positionMaxWidth,k1);		
+		gl_above = 1 - Math.pow((lnorm - positionMaxWidth)/(1 - positionMaxWidth),k2);
+		
+	if (lnorm >= 0  && lnorm <= positionMaxWidth   ) {
+		return gl_below;
+	} else if ( lnorm > positionMaxWidth && lnorm <= 1  ) {
+		return gl_above;
+	}
+}
+
+// calculate sj for blades shape, Coussement
+static double get_sj(float lnorm) {
+	
+	double p1 =P1_MEAN;
+	double p2 =P2_MEAN;
+	double b1 = B1_MEAN;
+	double b2 = B2_MEAN;
+	double sj_below;
+	double sj_above;
+	double positionMaxWidth = POSITION_MAX_WIDTH_MEAN;
+	
+	if (b2 == 2) {
+		B2_MEAN =1.999999;
+	} else if ( b2 == -2) {
+		B2_MEAN =(-1.999999);
+	} 	
+	if (positionMaxWidth == 0) {
+		positionMaxWidth =0.00001;
+	} else if ( positionMaxWidth == 1) {
+		positionMaxWidth =0.99999;
+	} 
+		sj_below = -b1* Math.pow((positionMaxWidth - lnorm)/positionMaxWidth,p1);	
+		sj_above = b2* Math.pow((lnorm - positionMaxWidth)/(1 - positionMaxWidth),p2);
+
+	if (lnorm >= 0  && lnorm <= positionMaxWidth   ) {
+		return sj_below;
+	} else if ( lnorm > positionMaxWidth && lnorm <= 1  ) {
+		return sj_above;
+	}
+}
+
+// calculate yj for blades shape, Coussement
+static double get_yj(double lnorm) {
+	double yj;
+	yj = get_gL(lnorm)/ Math.sqrt(1 + Math.pow(get_sj(lnorm),2));
+	return yj;
+}
+
+// calculate xj for blades shape, Coussement
+static double get_xj(double lnorm) {
+	
+	double xj;
+
+		xj = lnorm + get_sj(lnorm)*   get_yj(lnorm);
+	return xj;
+}	
+
+static double AngleCalculator(double x1, double y1, double x2, double y2) {
+
+        // Calculate the differences in x and y
+        double deltaX = x2 - x1;
+        double deltaY = y2 - y1;
+
+        // Calculate the slope (m)
+        double slope = (double) deltaY / deltaX;
+
+        // Calculate the angle in degrees
+        double angleDegrees = Math.toDegrees(Math.atan(slope));
+
+        // Determine the complementary angle based on the sign of deltaX
+        double complementaryAngle;
+        if (deltaX > 0) {
+            complementaryAngle = 90 - angleDegrees; // First quadrant case
+        } else {
+            complementaryAngle = (- 90- angleDegrees); // Second quadrant case
+        }
+	
+	// Print the results
+	return complementaryAngle;
+}
+
+static double calculateDistance(double x1, double y1, double x2, double y2) {
+	// Calculate the differences in x and y
+	double deltaX = x2 - x1;
+	double deltaY = y2 - y1;
+
+	// Calculate the distance using the distance formula
+	double distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+	return distance;
+}
+
+// Solve for x based on the given y, quadraticTerm, linearTerm, and intercept
+public static double solveForX(double y, double quadraticTerm, double linearTerm, double intercept) {
+        // Coefficients for the quadratic equation
+        double a = quadraticTerm;
+        double b = linearTerm;
+        double c = intercept - y;
+
+        // For y, solve the quadratic equation using the quadratic formula
+        double discriminant = b * b - 4 * a * c;
+
+        // Calculate the two possible values of x
+        double x1 = (-b + Math.sqrt(discriminant)) / (2 * a);
+
+        // Return both solutions in an array
+        return x1;
+    }
+
+// Calculate the difference between the solutions for y+1 and y
+public static double organAppearanceMainStem(double y, double quadraticTerm, double linearTerm, double intercept) {
+        // Solve for x when y
+        double solutionsForY = solveForX(y, quadraticTerm, linearTerm, intercept);
+        // Solve for x when y + 1
+        double solutionsForYPlusOne = solveForX(y + 1, quadraticTerm, linearTerm, intercept);
+
+        return Math.abs(solutionsForYPlusOne - solutionsForY);
+
+    }    // Calculate the difference between the solutions for y+1 and y
+  
+public static double organAppearanceSideBranch(double y, double m, double q) {
+        // Solve for x when y
+        double solutionsForY = (y-q)/m;
+        // Solve for x when y + 1
+        double solutionsForYPlusOne = (y+1-q)/m;
+
+        return Math.abs(solutionsForYPlusOne - solutionsForY);
+
+    }
+
+static float baseSpacing = 0.03333333333; //this is the distance between the points on the main vein. I have 31 points so 30 segments. that means the segments length 1/30. This number is relative, then it need to be scaled based on the real area, but after the mesh is created.
+
+static float get_lnorm_curvature(float input, float nr, float LW_ratio){
+	
+	if(CURVATURE_BLADES_MEAN ==0){CURVATURE_BLADES_MEAN =0.00000000000001;}
+	
+	float radians	=	Math.toRadians(CURVATURE_BLADES_MEAN);
+	float output	=	LW_ratio*input*2 * Math.cos((nr+1)*radians/2)*Math.sin(nr*radians/2)/Math.sin(radians/2);
+	return output;
+};
+
+static float get_z_axis(float input, int nr,float LW_ratio){
+		if(CURVATURE_BLADES_MEAN ==0){CURVATURE_BLADES_MEAN =0.00000000000001;}
+	float radians	=	Math.toRadians(CURVATURE_BLADES_MEAN);
+	float output	=	LW_ratio*2*input * Math.sin((nr+1)*radians/2)*Math.sin(nr*radians/2)/Math.sin(radians/2);
+	return output;
+};
+
+static float getCurvedX(float xDist, float LW_ratio) {
+		if(CURVATURE_BLADES_MEAN ==0){CURVATURE_BLADES_MEAN =0.00000000000001;}
+    float radians = Math.toRadians(CURVATURE_BLADES_MEAN);
+    float nr      =xDist / baseSpacing;  // key parameter mapping
+
+    return LW_ratio*2*baseSpacing 
+        * Math.cos((nr + 1) * radians / 2) 
+        * Math.sin(nr       * radians / 2) 
+        / Math.sin(radians / 2);
+}
+
+static float getCurvedZ(float xDist,float LW_ratio) {
+		if(CURVATURE_BLADES_MEAN ==0){CURVATURE_BLADES_MEAN =0.00000000000001;}
+    float radians = Math.toRadians(CURVATURE_BLADES_MEAN);
+    float nr      = xDist / baseSpacing;  // key parameter mapping
+
+    return LW_ratio*2*baseSpacing 
+        * Math.sin((nr + 1) * radians / 2) 
+        * Math.sin(nr       * radians / 2) 
+        / Math.sin(radians / 2);
+}
+
+
+static void Cotyledon(float LW_ratio) {
+	
+        ArrayList data = new ArrayList();
+
+        // Populate the list with the values from the arrays
+           for (int i = 0; i <= 30; i++) {
+            float[] lnorm = anyArray(0, get_lnorm_curvature(baseSpacing, i,LW_ratio), get_z_axis(baseSpacing, i,LW_ratio));
+            data.add(lnorm);
+        }
+
+lnorm1	=	(float[])	data.get(	0	)	;
+lnorm2	=	(float[])	data.get(	1	)	;
+lnorm3	=	(float[])	data.get(	2	)	;
+lnorm4	=	(float[])	data.get(	3	)	;
+lnorm5	=	(float[])	data.get(	4	)	;
+lnorm6	=	(float[])	data.get(	5	)	;
+lnorm7	=	(float[])	data.get(	6	)	;
+lnorm8	=	(float[])	data.get(	7	)	;
+lnorm9	=	(float[])	data.get(	8	)	;
+lnorm10	=	(float[])	data.get(	9	)	;
+lnorm11	=	(float[])	data.get(	10	)	;
+lnorm12	=	(float[])	data.get(	11	)	;
+lnorm13	=	(float[])	data.get(	12	)	;
+lnorm14	=	(float[])	data.get(	13	)	;
+lnorm15	=	(float[])	data.get(	14	)	;
+lnorm16	=	(float[])	data.get(	15	)	;
+lnorm17	=	(float[])	data.get(	16	)	;
+lnorm18	=	(float[])	data.get(	17	)	;
+lnorm19	=	(float[])	data.get(	18	)	;
+lnorm20	=	(float[])	data.get(	19	)	;
+lnorm21	=	(float[])	data.get(	20	)	;
+lnorm22	=	(float[])	data.get(	21	)	;
+lnorm23	=	(float[])	data.get(	22	)	;
+lnorm24	=	(float[])	data.get(	23	)	;
+lnorm25	=	(float[])	data.get(	24	)	;
+lnorm26	=	(float[])	data.get(	25	)	;
+lnorm27	=	(float[])	data.get(	26	)	;
+lnorm28	=	(float[])	data.get(	27	)	;
+lnorm29	=	(float[])	data.get(	28	)	;
+lnorm30	=	(float[])	data.get(	29	)	;
+lnorm31	=	(float[])	data.get(	30	)	;
+
+
+
+
+ArrayList data_left = new ArrayList();
+float position_x_temporary;
+float position_y_temporary;
+
+for (int i = 0; i <= 30; i++) {
+	float xDist = get_xj(baseSpacing* i);  // your irregular X
+	float z     = getCurvedZ(xDist,LW_ratio);       // apply same arc curvature
+	float x     = getCurvedX(xDist,LW_ratio);       // apply same arc curvature
+
+	// fixed_value might be your Y or something else:
+	float[] p   = anyArray(get_yj(i*baseSpacing+baseSpacing/2)/LW_ratio, x, z); 
+
+	data_left.add(p);
+}
+
+p1	=	(float[])	data_left.get(	0	)	;
+p2	=	(float[])	data_left.get(	1	)	;
+p3	=	(float[])	data_left.get(	2	)	;
+p4	=	(float[])	data_left.get(	3	)	;
+p5	=	(float[])	data_left.get(	4	)	;
+p6	=	(float[])	data_left.get(	5	)	;
+p7	=	(float[])	data_left.get(	6	)	;
+p8	=	(float[])	data_left.get(	7	)	;
+p9	=	(float[])	data_left.get(	8	)	;
+p10	=	(float[])	data_left.get(	9	)	;
+p11	=	(float[])	data_left.get(	10	)	;
+p12	=	(float[])	data_left.get(	11	)	;
+p13	=	(float[])	data_left.get(	12	)	;
+p14	=	(float[])	data_left.get(	13	)	;
+p15	=	(float[])	data_left.get(	14	)	;
+p16	=	(float[])	data_left.get(	15	)	;
+p17	=	(float[])	data_left.get(	16	)	;
+p18	=	(float[])	data_left.get(	17	)	;
+p19	=	(float[])	data_left.get(	18	)	;
+p20	=	(float[])	data_left.get(	19	)	;
+p21	=	(float[])	data_left.get(	20	)	;
+p22	=	(float[])	data_left.get(	21	)	;
+p23	=	(float[])	data_left.get(	22	)	;
+p24	=	(float[])	data_left.get(	23	)	;
+p25	=	(float[])	data_left.get(	24	)	;
+p26	=	(float[])	data_left.get(	25	)	;
+p27	=	(float[])	data_left.get(	26	)	;
+p28	=	(float[])	data_left.get(	27	)	;
+p29	=	(float[])	data_left.get(	28	)	;
+p30	=	(float[])	data_left.get(	29	)	;
+p31	=	(float[])	data_left.get(	30	)	;
+ArrayList data_right = new ArrayList();
+position_x_temporary=0;
+position_y_temporary=0;
+
+    for (int i = 0; i <= 30; i++) {
+        float xDist = get_xj(baseSpacing* i);  // your irregular X
+        float z     = getCurvedZ(xDist,LW_ratio);       // apply same arc curvature
+        float x     = getCurvedX(xDist,LW_ratio);       // apply same arc curvature
+
+        // fixed_value might be your Y or something else:
+        float[] p   = anyArray(-get_yj(i*baseSpacing+baseSpacing/2)/LW_ratio, x, z); 
+
+        data_right.add(p);
+    }
+p1R=(float[])data_right.get(0);
+p2R=(float[])data_right.get(1);
+p3R=(float[])data_right.get(2);
+p4R=(float[])data_right.get(3);
+p5R=(float[])data_right.get(4);
+p6R=(float[])data_right.get(5);
+p7R=(float[])data_right.get(6);
+p8R=(float[])data_right.get(7);
+p9R=(float[])data_right.get(8);
+p10R=(float[])data_right.get(9);
+p11R=(float[])data_right.get(10);
+p12R=(float[])data_right.get(11);
+p13R=(float[])data_right.get(12);
+p14R=(float[])data_right.get(13);
+p15R=(float[])data_right.get(14);
+p16R=(float[])data_right.get(15);
+p17R=(float[])data_right.get(16);
+p18R=(float[])data_right.get(17);
+p19R=(float[])data_right.get(18);
+p20R=(float[])data_right.get(19);
+p21R=(float[])data_right.get(20);
+p22R=(float[])data_right.get(21);
+p23R=(float[])data_right.get(22);
+p24R=(float[])data_right.get(23);
+p25R=(float[])data_right.get(24);
+p26R=(float[])data_right.get(25);
+p27R=(float[])data_right.get(26);
+p28R=(float[])data_right.get(27);
+p29R=(float[])data_right.get(28);
+p30R=(float[])data_right.get(29);
+p31R=(float[])data_right.get(30);
+p31R	=	(float[])	data_right.get(	30	)	;
+//vertexDataLeaflet = new FloatList(anyArray(pi[0],pi[1],pi[2],p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],p3[0],p3[1],p3[2],p4[0],p4[1],p4[2],p5[0],p5[1],p5[2],p6[0],p6[1],p6[2],p7[0],p7[1],p7[2],p8[0],p8[1],p8[2],p9[0],p9[1],p9[2],p10[0],p10[1],p10[2],p11[0],p11[1],p11[2],p12[0],p12[1],p12[2],p13[0],p13[1],p13[2],p14[0],p14[1],p14[2],p15[0],p15[1],p15[2],p16[0],p16[1],p16[2],p17[0],p17[1],p17[2],p18[0],p18[1],p18[2],p19[0],p19[1],p19[2],p20[0],p20[1],p20[2],p21[0],p21[1],p21[2],p22[0],p22[1],p22[2],p23[0],p23[1],p23[2],p24[0],p24[1],p24[2],p25[0],p25[1],p25[2],p26[0],p26[1],p26[2],p27[0],p27[1],p27[2],p28[0],p28[1],p28[2],p29[0],p29[1],p29[2],p30[0],p30[1],p30[2],p31[0],p31[1],p31[2],p32[0],p32[1],p32[2],p33[0],p33[1],p33[2],p34[0],p34[1],p34[2],p35[0],p35[1],p35[2],p36[0],p36[1],p36[2],p37[0],p37[1],p37[2],p38[0],p38[1],p38[2],p39[0],p39[1],p39[2],p40[0],p40[1],p40[2],p41[0],p41[1],p41[2],p42[0],p42[1],p42[2],p43[0],p43[1],p43[2],p44[0],p44[1],p44[2],p45[0],p45[1],p45[2],p46[0],p46[1],p46[2],p47[0],p47[1],p47[2],p48[0],p48[1],p48[2],p49[0],p49[1],p49[2],p50[0],p50[1],p50[2],p51[0],p51[1],p51[2],p52[0],p52[1],p52[2],p53[0],p53[1],p53[2],p54[0],p54[1],p54[2],p55[0],p55[1],p55[2]));
+vertexDataLeaflet = new FloatList(anyArray(
+lnorm1[0]	,	lnorm1[1]	,	lnorm1[2]	,	p1[0]	,	p1[1]	,	p1[2]	,	lnorm2[0]	,	lnorm2[1]	,	lnorm2[2]	,	p1[0]	,	p1[1]	,	p1[2]	,	p2[0]	,	p2[1]	,	p2[2]	,	lnorm2[0]		,	lnorm2[1]		,	lnorm2[2]		,
+lnorm2[0]	,	lnorm2[1]	,	lnorm2[2]	,	p2[0]	,	p2[1]	,	p2[2]	,	lnorm3[0]	,	lnorm3[1]	,	lnorm3[2]	,	p2[0]	,	p2[1]	,	p2[2]	,	p3[0]	,	p3[1]	,	p3[2]	,	lnorm3[0]		,	lnorm3[1]		,	lnorm3[2]		,
+lnorm3[0]	,	lnorm3[1]	,	lnorm3[2]	,	p3[0]	,	p3[1]	,	p3[2]	,	lnorm4[0]	,	lnorm4[1]	,	lnorm4[2]	,	p3[0]	,	p3[1]	,	p3[2]	,	p4[0]	,	p4[1]	,	p4[2]	,	lnorm4[0]		,	lnorm4[1]		,	lnorm4[2]		,
+lnorm4[0]	,	lnorm4[1]	,	lnorm4[2]	,	p4[0]	,	p4[1]	,	p4[2]	,	lnorm5[0]	,	lnorm5[1]	,	lnorm5[2]	,	p4[0]	,	p4[1]	,	p4[2]	,	p5[0]	,	p5[1]	,	p5[2]	,	lnorm5[0]		,	lnorm5[1]		,	lnorm5[2]		,
+lnorm5[0]	,	lnorm5[1]	,	lnorm5[2]	,	p5[0]	,	p5[1]	,	p5[2]	,	lnorm6[0]	,	lnorm6[1]	,	lnorm6[2]	,	p5[0]	,	p5[1]	,	p5[2]	,	p6[0]	,	p6[1]	,	p6[2]	,	lnorm6[0]		,	lnorm6[1]		,	lnorm6[2]		,
+lnorm6[0]	,	lnorm6[1]	,	lnorm6[2]	,	p6[0]	,	p6[1]	,	p6[2]	,	lnorm7[0]	,	lnorm7[1]	,	lnorm7[2]	,	p6[0]	,	p6[1]	,	p6[2]	,	p7[0]	,	p7[1]	,	p7[2]	,	lnorm7[0]		,	lnorm7[1]		,	lnorm7[2]		,
+lnorm7[0]	,	lnorm7[1]	,	lnorm7[2]	,	p7[0]	,	p7[1]	,	p7[2]	,	lnorm8[0]	,	lnorm8[1]	,	lnorm8[2]	,	p7[0]	,	p7[1]	,	p7[2]	,	p8[0]	,	p8[1]	,	p8[2]	,	lnorm8[0]		,	lnorm8[1]		,	lnorm8[2]		,
+lnorm8[0]	,	lnorm8[1]	,	lnorm8[2]	,	p8[0]	,	p8[1]	,	p8[2]	,	lnorm9[0]	,	lnorm9[1]	,	lnorm9[2]	,	p8[0]	,	p8[1]	,	p8[2]	,	p9[0]	,	p9[1]	,	p9[2]	,	lnorm9[0]		,	lnorm9[1]		,	lnorm9[2]		,
+lnorm9[0]	,	lnorm9[1]	,	lnorm9[2]	,	p9[0]	,	p9[1]	,	p9[2]	,	lnorm10[0]	,	lnorm10[1]	,	lnorm10[2]	,	p9[0]	,	p9[1]	,	p9[2]	,	p10[0]	,	p10[1]	,	p10[2]	,	lnorm10[0]		,	lnorm10[1]		,	lnorm10[2]		,
+lnorm10[0]	,	lnorm10[1]	,	lnorm10[2]	,	p10[0]	,	p10[1]	,	p10[2]	,	lnorm11[0]	,	lnorm11[1]	,	lnorm11[2]	,	p10[0]	,	p10[1]	,	p10[2]	,	p11[0]	,	p11[1]	,	p11[2]	,	lnorm11[0]		,	lnorm11[1]		,	lnorm11[2]		,
+lnorm11[0]	,	lnorm11[1]	,	lnorm11[2]	,	p11[0]	,	p11[1]	,	p11[2]	,	lnorm12[0]	,	lnorm12[1]	,	lnorm12[2]	,	p11[0]	,	p11[1]	,	p11[2]	,	p12[0]	,	p12[1]	,	p12[2]	,	lnorm12[0]		,	lnorm12[1]		,	lnorm12[2]		,
+lnorm12[0]	,	lnorm12[1]	,	lnorm12[2]	,	p12[0]	,	p12[1]	,	p12[2]	,	lnorm13[0]	,	lnorm13[1]	,	lnorm13[2]	,	p12[0]	,	p12[1]	,	p12[2]	,	p13[0]	,	p13[1]	,	p13[2]	,	lnorm13[0]		,	lnorm13[1]		,	lnorm13[2]		,
+lnorm13[0]	,	lnorm13[1]	,	lnorm13[2]	,	p13[0]	,	p13[1]	,	p13[2]	,	lnorm14[0]	,	lnorm14[1]	,	lnorm14[2]	,	p13[0]	,	p13[1]	,	p13[2]	,	p14[0]	,	p14[1]	,	p14[2]	,	lnorm14[0]		,	lnorm14[1]		,	lnorm14[2]		,
+lnorm14[0]	,	lnorm14[1]	,	lnorm14[2]	,	p14[0]	,	p14[1]	,	p14[2]	,	lnorm15[0]	,	lnorm15[1]	,	lnorm15[2]	,	p14[0]	,	p14[1]	,	p14[2]	,	p15[0]	,	p15[1]	,	p15[2]	,	lnorm15[0]		,	lnorm15[1]		,	lnorm15[2]		,
+lnorm15[0]	,	lnorm15[1]	,	lnorm15[2]	,	p15[0]	,	p15[1]	,	p15[2]	,	lnorm16[0]	,	lnorm16[1]	,	lnorm16[2]	,	p15[0]	,	p15[1]	,	p15[2]	,	p16[0]	,	p16[1]	,	p16[2]	,	lnorm16[0]		,	lnorm16[1]		,	lnorm16[2]		,
+lnorm16[0]	,	lnorm16[1]	,	lnorm16[2]	,	p16[0]	,	p16[1]	,	p16[2]	,	lnorm17[0]	,	lnorm17[1]	,	lnorm17[2]	,	p16[0]	,	p16[1]	,	p16[2]	,	p17[0]	,	p17[1]	,	p17[2]	,	lnorm17[0]		,	lnorm17[1]		,	lnorm17[2]		,
+lnorm17[0]	,	lnorm17[1]	,	lnorm17[2]	,	p17[0]	,	p17[1]	,	p17[2]	,	lnorm18[0]	,	lnorm18[1]	,	lnorm18[2]	,	p17[0]	,	p17[1]	,	p17[2]	,	p18[0]	,	p18[1]	,	p18[2]	,	lnorm18[0]		,	lnorm18[1]		,	lnorm18[2]		,
+lnorm18[0]	,	lnorm18[1]	,	lnorm18[2]	,	p18[0]	,	p18[1]	,	p18[2]	,	lnorm19[0]	,	lnorm19[1]	,	lnorm19[2]	,	p18[0]	,	p18[1]	,	p18[2]	,	p19[0]	,	p19[1]	,	p19[2]	,	lnorm19[0]		,	lnorm19[1]		,	lnorm19[2]		,
+lnorm19[0]	,	lnorm19[1]	,	lnorm19[2]	,	p19[0]	,	p19[1]	,	p19[2]	,	lnorm20[0]	,	lnorm20[1]	,	lnorm20[2]	,	p19[0]	,	p19[1]	,	p19[2]	,	p20[0]	,	p20[1]	,	p20[2]	,	lnorm20[0]		,	lnorm20[1]		,	lnorm20[2]		,
+lnorm20[0]	,	lnorm20[1]	,	lnorm20[2]	,	p20[0]	,	p20[1]	,	p20[2]	,	lnorm21[0]	,	lnorm21[1]	,	lnorm21[2]	,	p20[0]	,	p20[1]	,	p20[2]	,	p21[0]	,	p21[1]	,	p21[2]	,	lnorm21[0]		,	lnorm21[1]		,	lnorm21[2]		,
+lnorm21[0]	,	lnorm21[1]	,	lnorm21[2]	,	p21[0]	,	p21[1]	,	p21[2]	,	lnorm22[0]	,	lnorm22[1]	,	lnorm22[2]	,	p21[0]	,	p21[1]	,	p21[2]	,	p22[0]	,	p22[1]	,	p22[2]	,	lnorm22[0]		,	lnorm22[1]		,	lnorm22[2]		,
+lnorm22[0]	,	lnorm22[1]	,	lnorm22[2]	,	p22[0]	,	p22[1]	,	p22[2]	,	lnorm23[0]	,	lnorm23[1]	,	lnorm23[2]	,	p22[0]	,	p22[1]	,	p22[2]	,	p23[0]	,	p23[1]	,	p23[2]	,	lnorm23[0]		,	lnorm23[1]		,	lnorm23[2]		,
+lnorm23[0]	,	lnorm23[1]	,	lnorm23[2]	,	p23[0]	,	p23[1]	,	p23[2]	,	lnorm24[0]	,	lnorm24[1]	,	lnorm24[2]	,	p23[0]	,	p23[1]	,	p23[2]	,	p24[0]	,	p24[1]	,	p24[2]	,	lnorm24[0]		,	lnorm24[1]		,	lnorm24[2]		,
+lnorm24[0]	,	lnorm24[1]	,	lnorm24[2]	,	p24[0]	,	p24[1]	,	p24[2]	,	lnorm25[0]	,	lnorm25[1]	,	lnorm25[2]	,	p24[0]	,	p24[1]	,	p24[2]	,	p25[0]	,	p25[1]	,	p25[2]	,	lnorm25[0]		,	lnorm25[1]		,	lnorm25[2]		,
+lnorm25[0]	,	lnorm25[1]	,	lnorm25[2]	,	p25[0]	,	p25[1]	,	p25[2]	,	lnorm26[0]	,	lnorm26[1]	,	lnorm26[2]	,	p25[0]	,	p25[1]	,	p25[2]	,	p26[0]	,	p26[1]	,	p26[2]	,	lnorm26[0]		,	lnorm26[1]		,	lnorm26[2]		,
+lnorm26[0]	,	lnorm26[1]	,	lnorm26[2]	,	p26[0]	,	p26[1]	,	p26[2]	,	lnorm27[0]	,	lnorm27[1]	,	lnorm27[2]	,	p26[0]	,	p26[1]	,	p26[2]	,	p27[0]	,	p27[1]	,	p27[2]	,	lnorm27[0]		,	lnorm27[1]		,	lnorm27[2]		,
+lnorm27[0]	,	lnorm27[1]	,	lnorm27[2]	,	p27[0]	,	p27[1]	,	p27[2]	,	lnorm28[0]	,	lnorm28[1]	,	lnorm28[2]	,	p27[0]	,	p27[1]	,	p27[2]	,	p28[0]	,	p28[1]	,	p28[2]	,	lnorm28[0]		,	lnorm28[1]		,	lnorm28[2]		,
+lnorm28[0]	,	lnorm28[1]	,	lnorm28[2]	,	p28[0]	,	p28[1]	,	p28[2]	,	lnorm29[0]	,	lnorm29[1]	,	lnorm29[2]	,	p28[0]	,	p28[1]	,	p28[2]	,	p29[0]	,	p29[1]	,	p29[2]	,	lnorm29[0]		,	lnorm29[1]		,	lnorm29[2]		,
+lnorm29[0]	,	lnorm29[1]	,	lnorm29[2]	,	p29[0]	,	p29[1]	,	p29[2]	,	lnorm30[0]	,	lnorm30[1]	,	lnorm30[2]	,	p29[0]	,	p29[1]	,	p29[2]	,	p30[0]	,	p30[1]	,	p30[2]	,	lnorm30[0]		,	lnorm30[1]		,	lnorm30[2]		,
+lnorm30[0]	,	lnorm30[1]	,	lnorm30[2]	,	p30[0]	,	p30[1]	,	p30[2]	,	lnorm31[0]	,	lnorm31[1]	,	lnorm31[2]	,	p30[0]	,	p30[1]	,	p30[2]	,	p31[0]	,	p31[1]	,	p31[2]	,	lnorm31[0]		,	lnorm31[1]		,	lnorm31[2]		,
+
+
+p1R[0]	,	p1R[1]	,	p1R[2]	,	lnorm1[0]	,	lnorm1[1]	,	lnorm1[2]	,	lnorm2[0]	,	lnorm2[1]	,	lnorm2[2]	,	p1R[0]	,	p1R[1]	,	p1R[2]	,	lnorm2[0]	,	lnorm2[1]	,	lnorm2[2]	,	p2R[0]	,	p2R[1]	,	p2R[2],
+p2R[0]	,	p2R[1]	,	p2R[2]	,	lnorm2[0]	,	lnorm2[1]	,	lnorm2[2]	,	lnorm3[0]	,	lnorm3[1]	,	lnorm3[2]	,	p2R[0]	,	p2R[1]	,	p2R[2]	,	lnorm3[0]	,	lnorm3[1]	,	lnorm3[2]	,	p3R[0]	,	p3R[1]	,	p3R[2]	,
+p3R[0]	,	p3R[1]	,	p3R[2]	,	lnorm3[0]	,	lnorm3[1]	,	lnorm3[2]	,	lnorm4[0]	,	lnorm4[1]	,	lnorm4[2]	,	p3R[0]	,	p3R[1]	,	p3R[2]	,	lnorm4[0]	,	lnorm4[1]	,	lnorm4[2]	,	p4R[0]	,	p4R[1]	,	p4R[2]	,
+p4R[0]	,	p4R[1]	,	p4R[2]	,	lnorm4[0]	,	lnorm4[1]	,	lnorm4[2]	,	lnorm5[0]	,	lnorm5[1]	,	lnorm5[2]	,	p4R[0]	,	p4R[1]	,	p4R[2]	,	lnorm5[0]	,	lnorm5[1]	,	lnorm5[2]	,	p5R[0]	,	p5R[1]	,	p5R[2]	,
+p5R[0]	,	p5R[1]	,	p5R[2]	,	lnorm5[0]	,	lnorm5[1]	,	lnorm5[2]	,	lnorm6[0]	,	lnorm6[1]	,	lnorm6[2]	,	p5R[0]	,	p5R[1]	,	p5R[2]	,	lnorm6[0]	,	lnorm6[1]	,	lnorm6[2]	,	p6R[0]	,	p6R[1]	,	p6R[2]	,
+p6R[0]	,	p6R[1]	,	p6R[2]	,	lnorm6[0]	,	lnorm6[1]	,	lnorm6[2]	,	lnorm7[0]	,	lnorm7[1]	,	lnorm7[2]	,	p6R[0]	,	p6R[1]	,	p6R[2]	,	lnorm7[0]	,	lnorm7[1]	,	lnorm7[2]	,	p7R[0]	,	p7R[1]	,	p7R[2]	,
+p7R[0]	,	p7R[1]	,	p7R[2]	,	lnorm7[0]	,	lnorm7[1]	,	lnorm7[2]	,	lnorm8[0]	,	lnorm8[1]	,	lnorm8[2]	,	p7R[0]	,	p7R[1]	,	p7R[2]	,	lnorm8[0]	,	lnorm8[1]	,	lnorm8[2]	,	p8R[0]	,	p8R[1]	,	p8R[2]	,
+p8R[0]	,	p8R[1]	,	p8R[2]	,	lnorm8[0]	,	lnorm8[1]	,	lnorm8[2]	,	lnorm9[0]	,	lnorm9[1]	,	lnorm9[2]	,	p8R[0]	,	p8R[1]	,	p8R[2]	,	lnorm9[0]	,	lnorm9[1]	,	lnorm9[2]	,	p9R[0]	,	p9R[1]	,	p9R[2]	,
+p9R[0]	,	p9R[1]	,	p9R[2]	,	lnorm9[0]	,	lnorm9[1]	,	lnorm9[2]	,	lnorm10[0]	,	lnorm10[1]	,	lnorm10[2]	,	p9R[0]	,	p9R[1]	,	p9R[2]	,	lnorm10[0]	,	lnorm10[1]	,	lnorm10[2]	,	p10R[0]	,	p10R[1]	,	p10R[2]	,
+p10R[0]	,	p10R[1]	,	p10R[2]	,	lnorm10[0]	,	lnorm10[1]	,	lnorm10[2]	,	lnorm11[0]	,	lnorm11[1]	,	lnorm11[2]	,	p10R[0]	,	p10R[1]	,	p10R[2]	,	lnorm11[0]	,	lnorm11[1]	,	lnorm11[2]	,	p11R[0]	,	p11R[1]	,	p11R[2]	,
+p11R[0]	,	p11R[1]	,	p11R[2]	,	lnorm11[0]	,	lnorm11[1]	,	lnorm11[2]	,	lnorm12[0]	,	lnorm12[1]	,	lnorm12[2]	,	p11R[0]	,	p11R[1]	,	p11R[2]	,	lnorm12[0]	,	lnorm12[1]	,	lnorm12[2]	,	p12R[0]	,	p12R[1]	,	p12R[2]	,
+p12R[0]	,	p12R[1]	,	p12R[2]	,	lnorm12[0]	,	lnorm12[1]	,	lnorm12[2]	,	lnorm13[0]	,	lnorm13[1]	,	lnorm13[2]	,	p12R[0]	,	p12R[1]	,	p12R[2]	,	lnorm13[0]	,	lnorm13[1]	,	lnorm13[2]	,	p13R[0]	,	p13R[1]	,	p13R[2]	,
+p13R[0]	,	p13R[1]	,	p13R[2]	,	lnorm13[0]	,	lnorm13[1]	,	lnorm13[2]	,	lnorm14[0]	,	lnorm14[1]	,	lnorm14[2]	,	p13R[0]	,	p13R[1]	,	p13R[2]	,	lnorm14[0]	,	lnorm14[1]	,	lnorm14[2]	,	p14R[0]	,	p14R[1]	,	p14R[2]	,
+p14R[0]	,	p14R[1]	,	p14R[2]	,	lnorm14[0]	,	lnorm14[1]	,	lnorm14[2]	,	lnorm15[0]	,	lnorm15[1]	,	lnorm15[2]	,	p14R[0]	,	p14R[1]	,	p14R[2]	,	lnorm15[0]	,	lnorm15[1]	,	lnorm15[2]	,	p15R[0]	,	p15R[1]	,	p15R[2]	,
+p15R[0]	,	p15R[1]	,	p15R[2]	,	lnorm15[0]	,	lnorm15[1]	,	lnorm15[2]	,	lnorm16[0]	,	lnorm16[1]	,	lnorm16[2]	,	p15R[0]	,	p15R[1]	,	p15R[2]	,	lnorm16[0]	,	lnorm16[1]	,	lnorm16[2]	,	p16R[0]	,	p16R[1]	,	p16R[2]	,
+p16R[0]	,	p16R[1]	,	p16R[2]	,	lnorm16[0]	,	lnorm16[1]	,	lnorm16[2]	,	lnorm17[0]	,	lnorm17[1]	,	lnorm17[2]	,	p16R[0]	,	p16R[1]	,	p16R[2]	,	lnorm17[0]	,	lnorm17[1]	,	lnorm17[2]	,	p17R[0]	,	p17R[1]	,	p17R[2]	,
+p17R[0]	,	p17R[1]	,	p17R[2]	,	lnorm17[0]	,	lnorm17[1]	,	lnorm17[2]	,	lnorm18[0]	,	lnorm18[1]	,	lnorm18[2]	,	p17R[0]	,	p17R[1]	,	p17R[2]	,	lnorm18[0]	,	lnorm18[1]	,	lnorm18[2]	,	p18R[0]	,	p18R[1]	,	p18R[2]	,
+p18R[0]	,	p18R[1]	,	p18R[2]	,	lnorm18[0]	,	lnorm18[1]	,	lnorm18[2]	,	lnorm19[0]	,	lnorm19[1]	,	lnorm19[2]	,	p18R[0]	,	p18R[1]	,	p18R[2]	,	lnorm19[0]	,	lnorm19[1]	,	lnorm19[2]	,	p19R[0]	,	p19R[1]	,	p19R[2]	,
+p19R[0]	,	p19R[1]	,	p19R[2]	,	lnorm19[0]	,	lnorm19[1]	,	lnorm19[2]	,	lnorm20[0]	,	lnorm20[1]	,	lnorm20[2]	,	p19R[0]	,	p19R[1]	,	p19R[2]	,	lnorm20[0]	,	lnorm20[1]	,	lnorm20[2]	,	p20R[0]	,	p20R[1]	,	p20R[2]	,
+p20R[0]	,	p20R[1]	,	p20R[2]	,	lnorm20[0]	,	lnorm20[1]	,	lnorm20[2]	,	lnorm21[0]	,	lnorm21[1]	,	lnorm21[2]	,	p20R[0]	,	p20R[1]	,	p20R[2]	,	lnorm21[0]	,	lnorm21[1]	,	lnorm21[2]	,	p21R[0]	,	p21R[1]	,	p21R[2]	,
+p21R[0]	,	p21R[1]	,	p21R[2]	,	lnorm21[0]	,	lnorm21[1]	,	lnorm21[2]	,	lnorm22[0]	,	lnorm22[1]	,	lnorm22[2]	,	p21R[0]	,	p21R[1]	,	p21R[2]	,	lnorm22[0]	,	lnorm22[1]	,	lnorm22[2]	,	p22R[0]	,	p22R[1]	,	p22R[2]	,
+p22R[0]	,	p22R[1]	,	p22R[2]	,	lnorm22[0]	,	lnorm22[1]	,	lnorm22[2]	,	lnorm23[0]	,	lnorm23[1]	,	lnorm23[2]	,	p22R[0]	,	p22R[1]	,	p22R[2]	,	lnorm23[0]	,	lnorm23[1]	,	lnorm23[2]	,	p23R[0]	,	p23R[1]	,	p23R[2]	,
+p23R[0]	,	p23R[1]	,	p23R[2]	,	lnorm23[0]	,	lnorm23[1]	,	lnorm23[2]	,	lnorm24[0]	,	lnorm24[1]	,	lnorm24[2]	,	p23R[0]	,	p23R[1]	,	p23R[2]	,	lnorm24[0]	,	lnorm24[1]	,	lnorm24[2]	,	p24R[0]	,	p24R[1]	,	p24R[2]	,
+p24R[0]	,	p24R[1]	,	p24R[2]	,	lnorm24[0]	,	lnorm24[1]	,	lnorm24[2]	,	lnorm25[0]	,	lnorm25[1]	,	lnorm25[2]	,	p24R[0]	,	p24R[1]	,	p24R[2]	,	lnorm25[0]	,	lnorm25[1]	,	lnorm25[2]	,	p25R[0]	,	p25R[1]	,	p25R[2]	,
+p25R[0]	,	p25R[1]	,	p25R[2]	,	lnorm25[0]	,	lnorm25[1]	,	lnorm25[2]	,	lnorm26[0]	,	lnorm26[1]	,	lnorm26[2]	,	p25R[0]	,	p25R[1]	,	p25R[2]	,	lnorm26[0]	,	lnorm26[1]	,	lnorm26[2]	,	p26R[0]	,	p26R[1]	,	p26R[2]	,
+p26R[0]	,	p26R[1]	,	p26R[2]	,	lnorm26[0]	,	lnorm26[1]	,	lnorm26[2]	,	lnorm27[0]	,	lnorm27[1]	,	lnorm27[2]	,	p26R[0]	,	p26R[1]	,	p26R[2]	,	lnorm27[0]	,	lnorm27[1]	,	lnorm27[2]	,	p27R[0]	,	p27R[1]	,	p27R[2]	,
+p27R[0]	,	p27R[1]	,	p27R[2]	,	lnorm27[0]	,	lnorm27[1]	,	lnorm27[2]	,	lnorm28[0]	,	lnorm28[1]	,	lnorm28[2]	,	p27R[0]	,	p27R[1]	,	p27R[2]	,	lnorm28[0]	,	lnorm28[1]	,	lnorm28[2]	,	p28R[0]	,	p28R[1]	,	p28R[2]	,
+p28R[0]	,	p28R[1]	,	p28R[2]	,	lnorm28[0]	,	lnorm28[1]	,	lnorm28[2]	,	lnorm29[0]	,	lnorm29[1]	,	lnorm29[2]	,	p28R[0]	,	p28R[1]	,	p28R[2]	,	lnorm29[0]	,	lnorm29[1]	,	lnorm29[2]	,	p29R[0]	,	p29R[1]	,	p29R[2]	,
+p29R[0]	,	p29R[1]	,	p29R[2]	,	lnorm29[0]	,	lnorm29[1]	,	lnorm29[2]	,	lnorm30[0]	,	lnorm30[1]	,	lnorm30[2]	,	p29R[0]	,	p29R[1]	,	p29R[2]	,	lnorm30[0]	,	lnorm30[1]	,	lnorm30[2]	,	p30R[0]	,	p30R[1]	,	p30R[2]	,
+p30R[0]	,	p30R[1]	,	p30R[2]	,	lnorm30[0]	,	lnorm30[1]	,	lnorm30[2]	,	lnorm31[0]	,	lnorm31[1]	,	lnorm31[2]	,	p30R[0]	,	p30R[1]	,	p30R[2]	,	lnorm31[0]	,	lnorm31[1]	,	lnorm31[2]	,	p31R[0]	,	p31R[1]	,	p31R[2]	
+
+));
+
+
+//FloatList curved =        adjustLengthWidthAndApplyCurvature(vertexDataLeaflet, 10,1); // Apply curvature along x-axis
+
+cotyledon_mesh = getMesh(vertexDataLeaflet);
+
+}
+
+static void First_leaves(float LW_ratio) {
+	
+        ArrayList data = new ArrayList();
+
+        // Populate the list with the values from the arrays
+           for (int i = 0; i <= 30; i++) {
+            float[] lnorm = anyArray(0, get_lnorm_curvature(baseSpacing, i,LW_ratio), get_z_axis(baseSpacing, i,LW_ratio));
+            data.add(lnorm);
+        }
+
+lnorm1	=	(float[])	data.get(	0	)	;
+lnorm2	=	(float[])	data.get(	1	)	;
+lnorm3	=	(float[])	data.get(	2	)	;
+lnorm4	=	(float[])	data.get(	3	)	;
+lnorm5	=	(float[])	data.get(	4	)	;
+lnorm6	=	(float[])	data.get(	5	)	;
+lnorm7	=	(float[])	data.get(	6	)	;
+lnorm8	=	(float[])	data.get(	7	)	;
+lnorm9	=	(float[])	data.get(	8	)	;
+lnorm10	=	(float[])	data.get(	9	)	;
+lnorm11	=	(float[])	data.get(	10	)	;
+lnorm12	=	(float[])	data.get(	11	)	;
+lnorm13	=	(float[])	data.get(	12	)	;
+lnorm14	=	(float[])	data.get(	13	)	;
+lnorm15	=	(float[])	data.get(	14	)	;
+lnorm16	=	(float[])	data.get(	15	)	;
+lnorm17	=	(float[])	data.get(	16	)	;
+lnorm18	=	(float[])	data.get(	17	)	;
+lnorm19	=	(float[])	data.get(	18	)	;
+lnorm20	=	(float[])	data.get(	19	)	;
+lnorm21	=	(float[])	data.get(	20	)	;
+lnorm22	=	(float[])	data.get(	21	)	;
+lnorm23	=	(float[])	data.get(	22	)	;
+lnorm24	=	(float[])	data.get(	23	)	;
+lnorm25	=	(float[])	data.get(	24	)	;
+lnorm26	=	(float[])	data.get(	25	)	;
+lnorm27	=	(float[])	data.get(	26	)	;
+lnorm28	=	(float[])	data.get(	27	)	;
+lnorm29	=	(float[])	data.get(	28	)	;
+lnorm30	=	(float[])	data.get(	29	)	;
+lnorm31	=	(float[])	data.get(	30	)	;
+
+
+
+
+ArrayList data_left = new ArrayList();
+float position_x_temporary;
+float position_y_temporary;
+// Populate the list with the values from the arrays
+
+for (int i = 0; i <= 30; i++) {
+	float xDist = get_xj(baseSpacing* i);  // your irregular X
+	float z     = getCurvedZ(xDist,LW_ratio);       // apply same arc curvature
+	float x     = getCurvedX(xDist,LW_ratio);       // apply same arc curvature
+
+	// fixed_value might be your Y or something else:
+	float[] p   = anyArray(get_yj(i*baseSpacing+baseSpacing/2)/LW_ratio, x, z); 
+
+	data_left.add(p);
+}
+
+p1	=	(float[])	data_left.get(	0	)	;
+p2	=	(float[])	data_left.get(	1	)	;
+p3	=	(float[])	data_left.get(	2	)	;
+p4	=	(float[])	data_left.get(	3	)	;
+p5	=	(float[])	data_left.get(	4	)	;
+p6	=	(float[])	data_left.get(	5	)	;
+p7	=	(float[])	data_left.get(	6	)	;
+p8	=	(float[])	data_left.get(	7	)	;
+p9	=	(float[])	data_left.get(	8	)	;
+p10	=	(float[])	data_left.get(	9	)	;
+p11	=	(float[])	data_left.get(	10	)	;
+p12	=	(float[])	data_left.get(	11	)	;
+p13	=	(float[])	data_left.get(	12	)	;
+p14	=	(float[])	data_left.get(	13	)	;
+p15	=	(float[])	data_left.get(	14	)	;
+p16	=	(float[])	data_left.get(	15	)	;
+p17	=	(float[])	data_left.get(	16	)	;
+p18	=	(float[])	data_left.get(	17	)	;
+p19	=	(float[])	data_left.get(	18	)	;
+p20	=	(float[])	data_left.get(	19	)	;
+p21	=	(float[])	data_left.get(	20	)	;
+p22	=	(float[])	data_left.get(	21	)	;
+p23	=	(float[])	data_left.get(	22	)	;
+p24	=	(float[])	data_left.get(	23	)	;
+p25	=	(float[])	data_left.get(	24	)	;
+p26	=	(float[])	data_left.get(	25	)	;
+p27	=	(float[])	data_left.get(	26	)	;
+p28	=	(float[])	data_left.get(	27	)	;
+p29	=	(float[])	data_left.get(	28	)	;
+p30	=	(float[])	data_left.get(	29	)	;
+p31	=	(float[])	data_left.get(	30	)	;
+ArrayList data_right = new ArrayList();
+position_x_temporary=0;
+position_y_temporary=0;
+
+    for (int i = 0; i <= 30; i++) {
+        float xDist = get_xj(baseSpacing* i);  // your irregular X
+        float z     = getCurvedZ(xDist,LW_ratio);       // apply same arc curvature
+        float x     = getCurvedX(xDist,LW_ratio);       // apply same arc curvature
+
+        // fixed_value might be your Y or something else:
+        float[] p   = anyArray(-get_yj(i*baseSpacing+baseSpacing/2)/LW_ratio, x, z); 
+
+        data_right.add(p);
+    }
+p1R=(float[])data_right.get(0);
+p2R=(float[])data_right.get(1);
+p3R=(float[])data_right.get(2);
+p4R=(float[])data_right.get(3);
+p5R=(float[])data_right.get(4);
+p6R=(float[])data_right.get(5);
+p7R=(float[])data_right.get(6);
+p8R=(float[])data_right.get(7);
+p9R=(float[])data_right.get(8);
+p10R=(float[])data_right.get(9);
+p11R=(float[])data_right.get(10);
+p12R=(float[])data_right.get(11);
+p13R=(float[])data_right.get(12);
+p14R=(float[])data_right.get(13);
+p15R=(float[])data_right.get(14);
+p16R=(float[])data_right.get(15);
+p17R=(float[])data_right.get(16);
+p18R=(float[])data_right.get(17);
+p19R=(float[])data_right.get(18);
+p20R=(float[])data_right.get(19);
+p21R=(float[])data_right.get(20);
+p22R=(float[])data_right.get(21);
+p23R=(float[])data_right.get(22);
+p24R=(float[])data_right.get(23);
+p25R=(float[])data_right.get(24);
+p26R=(float[])data_right.get(25);
+p27R=(float[])data_right.get(26);
+p28R=(float[])data_right.get(27);
+p29R=(float[])data_right.get(28);
+p30R=(float[])data_right.get(29);
+p31R=(float[])data_right.get(30);
+
+//vertexDataLeaflet = new FloatList(anyArray(pi[0],pi[1],pi[2],p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],p3[0],p3[1],p3[2],p4[0],p4[1],p4[2],p5[0],p5[1],p5[2],p6[0],p6[1],p6[2],p7[0],p7[1],p7[2],p8[0],p8[1],p8[2],p9[0],p9[1],p9[2],p10[0],p10[1],p10[2],p11[0],p11[1],p11[2],p12[0],p12[1],p12[2],p13[0],p13[1],p13[2],p14[0],p14[1],p14[2],p15[0],p15[1],p15[2],p16[0],p16[1],p16[2],p17[0],p17[1],p17[2],p18[0],p18[1],p18[2],p19[0],p19[1],p19[2],p20[0],p20[1],p20[2],p21[0],p21[1],p21[2],p22[0],p22[1],p22[2],p23[0],p23[1],p23[2],p24[0],p24[1],p24[2],p25[0],p25[1],p25[2],p26[0],p26[1],p26[2],p27[0],p27[1],p27[2],p28[0],p28[1],p28[2],p29[0],p29[1],p29[2],p30[0],p30[1],p30[2],p31[0],p31[1],p31[2],p32[0],p32[1],p32[2],p33[0],p33[1],p33[2],p34[0],p34[1],p34[2],p35[0],p35[1],p35[2],p36[0],p36[1],p36[2],p37[0],p37[1],p37[2],p38[0],p38[1],p38[2],p39[0],p39[1],p39[2],p40[0],p40[1],p40[2],p41[0],p41[1],p41[2],p42[0],p42[1],p42[2],p43[0],p43[1],p43[2],p44[0],p44[1],p44[2],p45[0],p45[1],p45[2],p46[0],p46[1],p46[2],p47[0],p47[1],p47[2],p48[0],p48[1],p48[2],p49[0],p49[1],p49[2],p50[0],p50[1],p50[2],p51[0],p51[1],p51[2],p52[0],p52[1],p52[2],p53[0],p53[1],p53[2],p54[0],p54[1],p54[2],p55[0],p55[1],p55[2]));
+vertexDataLeaflet = new FloatList(anyArray(
+
+lnorm1[0]	,	lnorm1[1]	,	lnorm1[2]	,	p1[0]	,	p1[1]	,	p1[2]	,	lnorm2[0]	,	lnorm2[1]	,	lnorm2[2]	,	p1[0]	,	p1[1]	,	p1[2]	,	p2[0]	,	p2[1]	,	p2[2]	,	lnorm2[0]		,	lnorm2[1]		,	lnorm2[2]		,
+lnorm2[0]	,	lnorm2[1]	,	lnorm2[2]	,	p2[0]	,	p2[1]	,	p2[2]	,	lnorm3[0]	,	lnorm3[1]	,	lnorm3[2]	,	p2[0]	,	p2[1]	,	p2[2]	,	p3[0]	,	p3[1]	,	p3[2]	,	lnorm3[0]		,	lnorm3[1]		,	lnorm3[2]		,
+lnorm3[0]	,	lnorm3[1]	,	lnorm3[2]	,	p3[0]	,	p3[1]	,	p3[2]	,	lnorm4[0]	,	lnorm4[1]	,	lnorm4[2]	,	p3[0]	,	p3[1]	,	p3[2]	,	p4[0]	,	p4[1]	,	p4[2]	,	lnorm4[0]		,	lnorm4[1]		,	lnorm4[2]		,
+lnorm4[0]	,	lnorm4[1]	,	lnorm4[2]	,	p4[0]	,	p4[1]	,	p4[2]	,	lnorm5[0]	,	lnorm5[1]	,	lnorm5[2]	,	p4[0]	,	p4[1]	,	p4[2]	,	p5[0]	,	p5[1]	,	p5[2]	,	lnorm5[0]		,	lnorm5[1]		,	lnorm5[2]		,
+lnorm5[0]	,	lnorm5[1]	,	lnorm5[2]	,	p5[0]	,	p5[1]	,	p5[2]	,	lnorm6[0]	,	lnorm6[1]	,	lnorm6[2]	,	p5[0]	,	p5[1]	,	p5[2]	,	p6[0]	,	p6[1]	,	p6[2]	,	lnorm6[0]		,	lnorm6[1]		,	lnorm6[2]		,
+lnorm6[0]	,	lnorm6[1]	,	lnorm6[2]	,	p6[0]	,	p6[1]	,	p6[2]	,	lnorm7[0]	,	lnorm7[1]	,	lnorm7[2]	,	p6[0]	,	p6[1]	,	p6[2]	,	p7[0]	,	p7[1]	,	p7[2]	,	lnorm7[0]		,	lnorm7[1]		,	lnorm7[2]		,
+lnorm7[0]	,	lnorm7[1]	,	lnorm7[2]	,	p7[0]	,	p7[1]	,	p7[2]	,	lnorm8[0]	,	lnorm8[1]	,	lnorm8[2]	,	p7[0]	,	p7[1]	,	p7[2]	,	p8[0]	,	p8[1]	,	p8[2]	,	lnorm8[0]		,	lnorm8[1]		,	lnorm8[2]		,
+lnorm8[0]	,	lnorm8[1]	,	lnorm8[2]	,	p8[0]	,	p8[1]	,	p8[2]	,	lnorm9[0]	,	lnorm9[1]	,	lnorm9[2]	,	p8[0]	,	p8[1]	,	p8[2]	,	p9[0]	,	p9[1]	,	p9[2]	,	lnorm9[0]		,	lnorm9[1]		,	lnorm9[2]		,
+lnorm9[0]	,	lnorm9[1]	,	lnorm9[2]	,	p9[0]	,	p9[1]	,	p9[2]	,	lnorm10[0]	,	lnorm10[1]	,	lnorm10[2]	,	p9[0]	,	p9[1]	,	p9[2]	,	p10[0]	,	p10[1]	,	p10[2]	,	lnorm10[0]		,	lnorm10[1]		,	lnorm10[2]		,
+lnorm10[0]	,	lnorm10[1]	,	lnorm10[2]	,	p10[0]	,	p10[1]	,	p10[2]	,	lnorm11[0]	,	lnorm11[1]	,	lnorm11[2]	,	p10[0]	,	p10[1]	,	p10[2]	,	p11[0]	,	p11[1]	,	p11[2]	,	lnorm11[0]		,	lnorm11[1]		,	lnorm11[2]		,
+lnorm11[0]	,	lnorm11[1]	,	lnorm11[2]	,	p11[0]	,	p11[1]	,	p11[2]	,	lnorm12[0]	,	lnorm12[1]	,	lnorm12[2]	,	p11[0]	,	p11[1]	,	p11[2]	,	p12[0]	,	p12[1]	,	p12[2]	,	lnorm12[0]		,	lnorm12[1]		,	lnorm12[2]		,
+lnorm12[0]	,	lnorm12[1]	,	lnorm12[2]	,	p12[0]	,	p12[1]	,	p12[2]	,	lnorm13[0]	,	lnorm13[1]	,	lnorm13[2]	,	p12[0]	,	p12[1]	,	p12[2]	,	p13[0]	,	p13[1]	,	p13[2]	,	lnorm13[0]		,	lnorm13[1]		,	lnorm13[2]		,
+lnorm13[0]	,	lnorm13[1]	,	lnorm13[2]	,	p13[0]	,	p13[1]	,	p13[2]	,	lnorm14[0]	,	lnorm14[1]	,	lnorm14[2]	,	p13[0]	,	p13[1]	,	p13[2]	,	p14[0]	,	p14[1]	,	p14[2]	,	lnorm14[0]		,	lnorm14[1]		,	lnorm14[2]		,
+lnorm14[0]	,	lnorm14[1]	,	lnorm14[2]	,	p14[0]	,	p14[1]	,	p14[2]	,	lnorm15[0]	,	lnorm15[1]	,	lnorm15[2]	,	p14[0]	,	p14[1]	,	p14[2]	,	p15[0]	,	p15[1]	,	p15[2]	,	lnorm15[0]		,	lnorm15[1]		,	lnorm15[2]		,
+lnorm15[0]	,	lnorm15[1]	,	lnorm15[2]	,	p15[0]	,	p15[1]	,	p15[2]	,	lnorm16[0]	,	lnorm16[1]	,	lnorm16[2]	,	p15[0]	,	p15[1]	,	p15[2]	,	p16[0]	,	p16[1]	,	p16[2]	,	lnorm16[0]		,	lnorm16[1]		,	lnorm16[2]		,
+lnorm16[0]	,	lnorm16[1]	,	lnorm16[2]	,	p16[0]	,	p16[1]	,	p16[2]	,	lnorm17[0]	,	lnorm17[1]	,	lnorm17[2]	,	p16[0]	,	p16[1]	,	p16[2]	,	p17[0]	,	p17[1]	,	p17[2]	,	lnorm17[0]		,	lnorm17[1]		,	lnorm17[2]		,
+lnorm17[0]	,	lnorm17[1]	,	lnorm17[2]	,	p17[0]	,	p17[1]	,	p17[2]	,	lnorm18[0]	,	lnorm18[1]	,	lnorm18[2]	,	p17[0]	,	p17[1]	,	p17[2]	,	p18[0]	,	p18[1]	,	p18[2]	,	lnorm18[0]		,	lnorm18[1]		,	lnorm18[2]		,
+lnorm18[0]	,	lnorm18[1]	,	lnorm18[2]	,	p18[0]	,	p18[1]	,	p18[2]	,	lnorm19[0]	,	lnorm19[1]	,	lnorm19[2]	,	p18[0]	,	p18[1]	,	p18[2]	,	p19[0]	,	p19[1]	,	p19[2]	,	lnorm19[0]		,	lnorm19[1]		,	lnorm19[2]		,
+lnorm19[0]	,	lnorm19[1]	,	lnorm19[2]	,	p19[0]	,	p19[1]	,	p19[2]	,	lnorm20[0]	,	lnorm20[1]	,	lnorm20[2]	,	p19[0]	,	p19[1]	,	p19[2]	,	p20[0]	,	p20[1]	,	p20[2]	,	lnorm20[0]		,	lnorm20[1]		,	lnorm20[2]		,
+lnorm20[0]	,	lnorm20[1]	,	lnorm20[2]	,	p20[0]	,	p20[1]	,	p20[2]	,	lnorm21[0]	,	lnorm21[1]	,	lnorm21[2]	,	p20[0]	,	p20[1]	,	p20[2]	,	p21[0]	,	p21[1]	,	p21[2]	,	lnorm21[0]		,	lnorm21[1]		,	lnorm21[2]		,
+lnorm21[0]	,	lnorm21[1]	,	lnorm21[2]	,	p21[0]	,	p21[1]	,	p21[2]	,	lnorm22[0]	,	lnorm22[1]	,	lnorm22[2]	,	p21[0]	,	p21[1]	,	p21[2]	,	p22[0]	,	p22[1]	,	p22[2]	,	lnorm22[0]		,	lnorm22[1]		,	lnorm22[2]		,
+lnorm22[0]	,	lnorm22[1]	,	lnorm22[2]	,	p22[0]	,	p22[1]	,	p22[2]	,	lnorm23[0]	,	lnorm23[1]	,	lnorm23[2]	,	p22[0]	,	p22[1]	,	p22[2]	,	p23[0]	,	p23[1]	,	p23[2]	,	lnorm23[0]		,	lnorm23[1]		,	lnorm23[2]		,
+lnorm23[0]	,	lnorm23[1]	,	lnorm23[2]	,	p23[0]	,	p23[1]	,	p23[2]	,	lnorm24[0]	,	lnorm24[1]	,	lnorm24[2]	,	p23[0]	,	p23[1]	,	p23[2]	,	p24[0]	,	p24[1]	,	p24[2]	,	lnorm24[0]		,	lnorm24[1]		,	lnorm24[2]		,
+lnorm24[0]	,	lnorm24[1]	,	lnorm24[2]	,	p24[0]	,	p24[1]	,	p24[2]	,	lnorm25[0]	,	lnorm25[1]	,	lnorm25[2]	,	p24[0]	,	p24[1]	,	p24[2]	,	p25[0]	,	p25[1]	,	p25[2]	,	lnorm25[0]		,	lnorm25[1]		,	lnorm25[2]		,
+lnorm25[0]	,	lnorm25[1]	,	lnorm25[2]	,	p25[0]	,	p25[1]	,	p25[2]	,	lnorm26[0]	,	lnorm26[1]	,	lnorm26[2]	,	p25[0]	,	p25[1]	,	p25[2]	,	p26[0]	,	p26[1]	,	p26[2]	,	lnorm26[0]		,	lnorm26[1]		,	lnorm26[2]		,
+lnorm26[0]	,	lnorm26[1]	,	lnorm26[2]	,	p26[0]	,	p26[1]	,	p26[2]	,	lnorm27[0]	,	lnorm27[1]	,	lnorm27[2]	,	p26[0]	,	p26[1]	,	p26[2]	,	p27[0]	,	p27[1]	,	p27[2]	,	lnorm27[0]		,	lnorm27[1]		,	lnorm27[2]		,
+lnorm27[0]	,	lnorm27[1]	,	lnorm27[2]	,	p27[0]	,	p27[1]	,	p27[2]	,	lnorm28[0]	,	lnorm28[1]	,	lnorm28[2]	,	p27[0]	,	p27[1]	,	p27[2]	,	p28[0]	,	p28[1]	,	p28[2]	,	lnorm28[0]		,	lnorm28[1]		,	lnorm28[2]		,
+lnorm28[0]	,	lnorm28[1]	,	lnorm28[2]	,	p28[0]	,	p28[1]	,	p28[2]	,	lnorm29[0]	,	lnorm29[1]	,	lnorm29[2]	,	p28[0]	,	p28[1]	,	p28[2]	,	p29[0]	,	p29[1]	,	p29[2]	,	lnorm29[0]		,	lnorm29[1]		,	lnorm29[2]		,
+lnorm29[0]	,	lnorm29[1]	,	lnorm29[2]	,	p29[0]	,	p29[1]	,	p29[2]	,	lnorm30[0]	,	lnorm30[1]	,	lnorm30[2]	,	p29[0]	,	p29[1]	,	p29[2]	,	p30[0]	,	p30[1]	,	p30[2]	,	lnorm30[0]		,	lnorm30[1]		,	lnorm30[2]		,
+lnorm30[0]	,	lnorm30[1]	,	lnorm30[2]	,	p30[0]	,	p30[1]	,	p30[2]	,	lnorm31[0]	,	lnorm31[1]	,	lnorm31[2]	,	p30[0]	,	p30[1]	,	p30[2]	,	p31[0]	,	p31[1]	,	p31[2]	,	lnorm31[0]		,	lnorm31[1]		,	lnorm31[2]		,
+
+
+p1R[0]	,	p1R[1]	,	p1R[2]	,	lnorm1[0]	,	lnorm1[1]	,	lnorm1[2]	,	lnorm2[0]	,	lnorm2[1]	,	lnorm2[2]	,	p1R[0]	,	p1R[1]	,	p1R[2]	,	lnorm2[0]	,	lnorm2[1]	,	lnorm2[2]	,	p2R[0]	,	p2R[1]	,	p2R[2],
+p2R[0]	,	p2R[1]	,	p2R[2]	,	lnorm2[0]	,	lnorm2[1]	,	lnorm2[2]	,	lnorm3[0]	,	lnorm3[1]	,	lnorm3[2]	,	p2R[0]	,	p2R[1]	,	p2R[2]	,	lnorm3[0]	,	lnorm3[1]	,	lnorm3[2]	,	p3R[0]	,	p3R[1]	,	p3R[2]	,
+p3R[0]	,	p3R[1]	,	p3R[2]	,	lnorm3[0]	,	lnorm3[1]	,	lnorm3[2]	,	lnorm4[0]	,	lnorm4[1]	,	lnorm4[2]	,	p3R[0]	,	p3R[1]	,	p3R[2]	,	lnorm4[0]	,	lnorm4[1]	,	lnorm4[2]	,	p4R[0]	,	p4R[1]	,	p4R[2]	,
+p4R[0]	,	p4R[1]	,	p4R[2]	,	lnorm4[0]	,	lnorm4[1]	,	lnorm4[2]	,	lnorm5[0]	,	lnorm5[1]	,	lnorm5[2]	,	p4R[0]	,	p4R[1]	,	p4R[2]	,	lnorm5[0]	,	lnorm5[1]	,	lnorm5[2]	,	p5R[0]	,	p5R[1]	,	p5R[2]	,
+p5R[0]	,	p5R[1]	,	p5R[2]	,	lnorm5[0]	,	lnorm5[1]	,	lnorm5[2]	,	lnorm6[0]	,	lnorm6[1]	,	lnorm6[2]	,	p5R[0]	,	p5R[1]	,	p5R[2]	,	lnorm6[0]	,	lnorm6[1]	,	lnorm6[2]	,	p6R[0]	,	p6R[1]	,	p6R[2]	,
+p6R[0]	,	p6R[1]	,	p6R[2]	,	lnorm6[0]	,	lnorm6[1]	,	lnorm6[2]	,	lnorm7[0]	,	lnorm7[1]	,	lnorm7[2]	,	p6R[0]	,	p6R[1]	,	p6R[2]	,	lnorm7[0]	,	lnorm7[1]	,	lnorm7[2]	,	p7R[0]	,	p7R[1]	,	p7R[2]	,
+p7R[0]	,	p7R[1]	,	p7R[2]	,	lnorm7[0]	,	lnorm7[1]	,	lnorm7[2]	,	lnorm8[0]	,	lnorm8[1]	,	lnorm8[2]	,	p7R[0]	,	p7R[1]	,	p7R[2]	,	lnorm8[0]	,	lnorm8[1]	,	lnorm8[2]	,	p8R[0]	,	p8R[1]	,	p8R[2]	,
+p8R[0]	,	p8R[1]	,	p8R[2]	,	lnorm8[0]	,	lnorm8[1]	,	lnorm8[2]	,	lnorm9[0]	,	lnorm9[1]	,	lnorm9[2]	,	p8R[0]	,	p8R[1]	,	p8R[2]	,	lnorm9[0]	,	lnorm9[1]	,	lnorm9[2]	,	p9R[0]	,	p9R[1]	,	p9R[2]	,
+p9R[0]	,	p9R[1]	,	p9R[2]	,	lnorm9[0]	,	lnorm9[1]	,	lnorm9[2]	,	lnorm10[0]	,	lnorm10[1]	,	lnorm10[2]	,	p9R[0]	,	p9R[1]	,	p9R[2]	,	lnorm10[0]	,	lnorm10[1]	,	lnorm10[2]	,	p10R[0]	,	p10R[1]	,	p10R[2]	,
+p10R[0]	,	p10R[1]	,	p10R[2]	,	lnorm10[0]	,	lnorm10[1]	,	lnorm10[2]	,	lnorm11[0]	,	lnorm11[1]	,	lnorm11[2]	,	p10R[0]	,	p10R[1]	,	p10R[2]	,	lnorm11[0]	,	lnorm11[1]	,	lnorm11[2]	,	p11R[0]	,	p11R[1]	,	p11R[2]	,
+p11R[0]	,	p11R[1]	,	p11R[2]	,	lnorm11[0]	,	lnorm11[1]	,	lnorm11[2]	,	lnorm12[0]	,	lnorm12[1]	,	lnorm12[2]	,	p11R[0]	,	p11R[1]	,	p11R[2]	,	lnorm12[0]	,	lnorm12[1]	,	lnorm12[2]	,	p12R[0]	,	p12R[1]	,	p12R[2]	,
+p12R[0]	,	p12R[1]	,	p12R[2]	,	lnorm12[0]	,	lnorm12[1]	,	lnorm12[2]	,	lnorm13[0]	,	lnorm13[1]	,	lnorm13[2]	,	p12R[0]	,	p12R[1]	,	p12R[2]	,	lnorm13[0]	,	lnorm13[1]	,	lnorm13[2]	,	p13R[0]	,	p13R[1]	,	p13R[2]	,
+p13R[0]	,	p13R[1]	,	p13R[2]	,	lnorm13[0]	,	lnorm13[1]	,	lnorm13[2]	,	lnorm14[0]	,	lnorm14[1]	,	lnorm14[2]	,	p13R[0]	,	p13R[1]	,	p13R[2]	,	lnorm14[0]	,	lnorm14[1]	,	lnorm14[2]	,	p14R[0]	,	p14R[1]	,	p14R[2]	,
+p14R[0]	,	p14R[1]	,	p14R[2]	,	lnorm14[0]	,	lnorm14[1]	,	lnorm14[2]	,	lnorm15[0]	,	lnorm15[1]	,	lnorm15[2]	,	p14R[0]	,	p14R[1]	,	p14R[2]	,	lnorm15[0]	,	lnorm15[1]	,	lnorm15[2]	,	p15R[0]	,	p15R[1]	,	p15R[2]	,
+p15R[0]	,	p15R[1]	,	p15R[2]	,	lnorm15[0]	,	lnorm15[1]	,	lnorm15[2]	,	lnorm16[0]	,	lnorm16[1]	,	lnorm16[2]	,	p15R[0]	,	p15R[1]	,	p15R[2]	,	lnorm16[0]	,	lnorm16[1]	,	lnorm16[2]	,	p16R[0]	,	p16R[1]	,	p16R[2]	,
+p16R[0]	,	p16R[1]	,	p16R[2]	,	lnorm16[0]	,	lnorm16[1]	,	lnorm16[2]	,	lnorm17[0]	,	lnorm17[1]	,	lnorm17[2]	,	p16R[0]	,	p16R[1]	,	p16R[2]	,	lnorm17[0]	,	lnorm17[1]	,	lnorm17[2]	,	p17R[0]	,	p17R[1]	,	p17R[2]	,
+p17R[0]	,	p17R[1]	,	p17R[2]	,	lnorm17[0]	,	lnorm17[1]	,	lnorm17[2]	,	lnorm18[0]	,	lnorm18[1]	,	lnorm18[2]	,	p17R[0]	,	p17R[1]	,	p17R[2]	,	lnorm18[0]	,	lnorm18[1]	,	lnorm18[2]	,	p18R[0]	,	p18R[1]	,	p18R[2]	,
+p18R[0]	,	p18R[1]	,	p18R[2]	,	lnorm18[0]	,	lnorm18[1]	,	lnorm18[2]	,	lnorm19[0]	,	lnorm19[1]	,	lnorm19[2]	,	p18R[0]	,	p18R[1]	,	p18R[2]	,	lnorm19[0]	,	lnorm19[1]	,	lnorm19[2]	,	p19R[0]	,	p19R[1]	,	p19R[2]	,
+p19R[0]	,	p19R[1]	,	p19R[2]	,	lnorm19[0]	,	lnorm19[1]	,	lnorm19[2]	,	lnorm20[0]	,	lnorm20[1]	,	lnorm20[2]	,	p19R[0]	,	p19R[1]	,	p19R[2]	,	lnorm20[0]	,	lnorm20[1]	,	lnorm20[2]	,	p20R[0]	,	p20R[1]	,	p20R[2]	,
+p20R[0]	,	p20R[1]	,	p20R[2]	,	lnorm20[0]	,	lnorm20[1]	,	lnorm20[2]	,	lnorm21[0]	,	lnorm21[1]	,	lnorm21[2]	,	p20R[0]	,	p20R[1]	,	p20R[2]	,	lnorm21[0]	,	lnorm21[1]	,	lnorm21[2]	,	p21R[0]	,	p21R[1]	,	p21R[2]	,
+p21R[0]	,	p21R[1]	,	p21R[2]	,	lnorm21[0]	,	lnorm21[1]	,	lnorm21[2]	,	lnorm22[0]	,	lnorm22[1]	,	lnorm22[2]	,	p21R[0]	,	p21R[1]	,	p21R[2]	,	lnorm22[0]	,	lnorm22[1]	,	lnorm22[2]	,	p22R[0]	,	p22R[1]	,	p22R[2]	,
+p22R[0]	,	p22R[1]	,	p22R[2]	,	lnorm22[0]	,	lnorm22[1]	,	lnorm22[2]	,	lnorm23[0]	,	lnorm23[1]	,	lnorm23[2]	,	p22R[0]	,	p22R[1]	,	p22R[2]	,	lnorm23[0]	,	lnorm23[1]	,	lnorm23[2]	,	p23R[0]	,	p23R[1]	,	p23R[2]	,
+p23R[0]	,	p23R[1]	,	p23R[2]	,	lnorm23[0]	,	lnorm23[1]	,	lnorm23[2]	,	lnorm24[0]	,	lnorm24[1]	,	lnorm24[2]	,	p23R[0]	,	p23R[1]	,	p23R[2]	,	lnorm24[0]	,	lnorm24[1]	,	lnorm24[2]	,	p24R[0]	,	p24R[1]	,	p24R[2]	,
+p24R[0]	,	p24R[1]	,	p24R[2]	,	lnorm24[0]	,	lnorm24[1]	,	lnorm24[2]	,	lnorm25[0]	,	lnorm25[1]	,	lnorm25[2]	,	p24R[0]	,	p24R[1]	,	p24R[2]	,	lnorm25[0]	,	lnorm25[1]	,	lnorm25[2]	,	p25R[0]	,	p25R[1]	,	p25R[2]	,
+p25R[0]	,	p25R[1]	,	p25R[2]	,	lnorm25[0]	,	lnorm25[1]	,	lnorm25[2]	,	lnorm26[0]	,	lnorm26[1]	,	lnorm26[2]	,	p25R[0]	,	p25R[1]	,	p25R[2]	,	lnorm26[0]	,	lnorm26[1]	,	lnorm26[2]	,	p26R[0]	,	p26R[1]	,	p26R[2]	,
+p26R[0]	,	p26R[1]	,	p26R[2]	,	lnorm26[0]	,	lnorm26[1]	,	lnorm26[2]	,	lnorm27[0]	,	lnorm27[1]	,	lnorm27[2]	,	p26R[0]	,	p26R[1]	,	p26R[2]	,	lnorm27[0]	,	lnorm27[1]	,	lnorm27[2]	,	p27R[0]	,	p27R[1]	,	p27R[2]	,
+p27R[0]	,	p27R[1]	,	p27R[2]	,	lnorm27[0]	,	lnorm27[1]	,	lnorm27[2]	,	lnorm28[0]	,	lnorm28[1]	,	lnorm28[2]	,	p27R[0]	,	p27R[1]	,	p27R[2]	,	lnorm28[0]	,	lnorm28[1]	,	lnorm28[2]	,	p28R[0]	,	p28R[1]	,	p28R[2]	,
+p28R[0]	,	p28R[1]	,	p28R[2]	,	lnorm28[0]	,	lnorm28[1]	,	lnorm28[2]	,	lnorm29[0]	,	lnorm29[1]	,	lnorm29[2]	,	p28R[0]	,	p28R[1]	,	p28R[2]	,	lnorm29[0]	,	lnorm29[1]	,	lnorm29[2]	,	p29R[0]	,	p29R[1]	,	p29R[2]	,
+p29R[0]	,	p29R[1]	,	p29R[2]	,	lnorm29[0]	,	lnorm29[1]	,	lnorm29[2]	,	lnorm30[0]	,	lnorm30[1]	,	lnorm30[2]	,	p29R[0]	,	p29R[1]	,	p29R[2]	,	lnorm30[0]	,	lnorm30[1]	,	lnorm30[2]	,	p30R[0]	,	p30R[1]	,	p30R[2]	,
+p30R[0]	,	p30R[1]	,	p30R[2]	,	lnorm30[0]	,	lnorm30[1]	,	lnorm30[2]	,	lnorm31[0]	,	lnorm31[1]	,	lnorm31[2]	,	p30R[0]	,	p30R[1]	,	p30R[2]	,	lnorm31[0]	,	lnorm31[1]	,	lnorm31[2]	,	p31R[0]	,	p31R[1]	,	p31R[2]	
+
+));
+
+firt_leaves_mesh = getMesh(vertexDataLeaflet);
+
+}
+
+static void Other_leaves(float LW_ratio) {
+	
+        ArrayList data = new ArrayList();
+
+        // Populate the list with the values from the arrays
+           for (int i = 0; i <= 30; i++) {
+            float[] lnorm = anyArray(0, get_lnorm_curvature(baseSpacing, i,LW_ratio), get_z_axis(baseSpacing, i,LW_ratio));
+            data.add(lnorm);
+        }
+
+lnorm1	=	(float[])	data.get(	0	)	;
+lnorm2	=	(float[])	data.get(	1	)	;
+lnorm3	=	(float[])	data.get(	2	)	;
+lnorm4	=	(float[])	data.get(	3	)	;
+lnorm5	=	(float[])	data.get(	4	)	;
+lnorm6	=	(float[])	data.get(	5	)	;
+lnorm7	=	(float[])	data.get(	6	)	;
+lnorm8	=	(float[])	data.get(	7	)	;
+lnorm9	=	(float[])	data.get(	8	)	;
+lnorm10	=	(float[])	data.get(	9	)	;
+lnorm11	=	(float[])	data.get(	10	)	;
+lnorm12	=	(float[])	data.get(	11	)	;
+lnorm13	=	(float[])	data.get(	12	)	;
+lnorm14	=	(float[])	data.get(	13	)	;
+lnorm15	=	(float[])	data.get(	14	)	;
+lnorm16	=	(float[])	data.get(	15	)	;
+lnorm17	=	(float[])	data.get(	16	)	;
+lnorm18	=	(float[])	data.get(	17	)	;
+lnorm19	=	(float[])	data.get(	18	)	;
+lnorm20	=	(float[])	data.get(	19	)	;
+lnorm21	=	(float[])	data.get(	20	)	;
+lnorm22	=	(float[])	data.get(	21	)	;
+lnorm23	=	(float[])	data.get(	22	)	;
+lnorm24	=	(float[])	data.get(	23	)	;
+lnorm25	=	(float[])	data.get(	24	)	;
+lnorm26	=	(float[])	data.get(	25	)	;
+lnorm27	=	(float[])	data.get(	26	)	;
+lnorm28	=	(float[])	data.get(	27	)	;
+lnorm29	=	(float[])	data.get(	28	)	;
+lnorm30	=	(float[])	data.get(	29	)	;
+lnorm31	=	(float[])	data.get(	30	)	;
+
+
+
+
+ArrayList data_left = new ArrayList();
+float position_x_temporary;
+float position_y_temporary;
+
+for (int i = 0; i <= 60; i++) {
+	float xDist = get_xj(baseSpacing* i);  // your irregular X
+	float z     = getCurvedZ(xDist,LW_ratio);       // apply same arc curvature
+	float x     = getCurvedX(xDist,LW_ratio);       // apply same arc curvature
+
+	// fixed_value might be your Y or something else:
+	float[] p   = anyArray(get_yj(i*baseSpacing+baseSpacing/2)/LW_ratio, x, z); 
+
+	data_left.add(p);
+}
+
+p1	=	(float[])	data_left.get(	0	)	;
+p2	=	(float[])	data_left.get(	1	)	;
+p3	=	(float[])	data_left.get(	2	)	;
+p4	=	(float[])	data_left.get(	3	)	;
+p5	=	(float[])	data_left.get(	4	)	;
+p6	=	(float[])	data_left.get(	5	)	;
+p7	=	(float[])	data_left.get(	6	)	;
+p8	=	(float[])	data_left.get(	7	)	;
+p9	=	(float[])	data_left.get(	8	)	;
+p10	=	(float[])	data_left.get(	9	)	;
+p11	=	(float[])	data_left.get(	10	)	;
+p12	=	(float[])	data_left.get(	11	)	;
+p13	=	(float[])	data_left.get(	12	)	;
+p14	=	(float[])	data_left.get(	13	)	;
+p15	=	(float[])	data_left.get(	14	)	;
+p16	=	(float[])	data_left.get(	15	)	;
+p17	=	(float[])	data_left.get(	16	)	;
+p18	=	(float[])	data_left.get(	17	)	;
+p19	=	(float[])	data_left.get(	18	)	;
+p20	=	(float[])	data_left.get(	19	)	;
+p21	=	(float[])	data_left.get(	20	)	;
+p22	=	(float[])	data_left.get(	21	)	;
+p23	=	(float[])	data_left.get(	22	)	;
+p24	=	(float[])	data_left.get(	23	)	;
+p25	=	(float[])	data_left.get(	24	)	;
+p26	=	(float[])	data_left.get(	25	)	;
+p27	=	(float[])	data_left.get(	26	)	;
+p28	=	(float[])	data_left.get(	27	)	;
+p29	=	(float[])	data_left.get(	28	)	;
+p30	=	(float[])	data_left.get(	29	)	;
+p31	=	(float[])	data_left.get(	30	)	;
+
+ArrayList data_right = new ArrayList();
+position_x_temporary=0;
+position_y_temporary=0;
+
+    for (int i = 0; i <= 30; i++) {
+        float xDist = get_xj(baseSpacing* i);  // your irregular X
+        float z     = getCurvedZ(xDist,LW_ratio);       // apply same arc curvature
+        float x     = getCurvedX(xDist,LW_ratio);       // apply same arc curvature
+
+        // fixed_value might be your Y or something else:
+        float[] p   = anyArray(-get_yj(i*baseSpacing+baseSpacing/2)/LW_ratio, x, z); 
+
+        data_right.add(p);
+    }
+p1R=(float[])data_right.get(0);
+p2R=(float[])data_right.get(1);
+p3R=(float[])data_right.get(2);
+p4R=(float[])data_right.get(3);
+p5R=(float[])data_right.get(4);
+p6R=(float[])data_right.get(5);
+p7R=(float[])data_right.get(6);
+p8R=(float[])data_right.get(7);
+p9R=(float[])data_right.get(8);
+p10R=(float[])data_right.get(9);
+p11R=(float[])data_right.get(10);
+p12R=(float[])data_right.get(11);
+p13R=(float[])data_right.get(12);
+p14R=(float[])data_right.get(13);
+p15R=(float[])data_right.get(14);
+p16R=(float[])data_right.get(15);
+p17R=(float[])data_right.get(16);
+p18R=(float[])data_right.get(17);
+p19R=(float[])data_right.get(18);
+p20R=(float[])data_right.get(19);
+p21R=(float[])data_right.get(20);
+p22R=(float[])data_right.get(21);
+p23R=(float[])data_right.get(22);
+p24R=(float[])data_right.get(23);
+p25R=(float[])data_right.get(24);
+p26R=(float[])data_right.get(25);
+p27R=(float[])data_right.get(26);
+p28R=(float[])data_right.get(27);
+p29R=(float[])data_right.get(28);
+p30R=(float[])data_right.get(29);
+p31R=(float[])data_right.get(30);
+
+//vertexDataLeaflet = new FloatList(anyArray(pi[0],pi[1],pi[2],p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],p3[0],p3[1],p3[2],p4[0],p4[1],p4[2],p5[0],p5[1],p5[2],p6[0],p6[1],p6[2],p7[0],p7[1],p7[2],p8[0],p8[1],p8[2],p9[0],p9[1],p9[2],p10[0],p10[1],p10[2],p11[0],p11[1],p11[2],p12[0],p12[1],p12[2],p13[0],p13[1],p13[2],p14[0],p14[1],p14[2],p15[0],p15[1],p15[2],p16[0],p16[1],p16[2],p17[0],p17[1],p17[2],p18[0],p18[1],p18[2],p19[0],p19[1],p19[2],p20[0],p20[1],p20[2],p21[0],p21[1],p21[2],p22[0],p22[1],p22[2],p23[0],p23[1],p23[2],p24[0],p24[1],p24[2],p25[0],p25[1],p25[2],p26[0],p26[1],p26[2],p27[0],p27[1],p27[2],p28[0],p28[1],p28[2],p29[0],p29[1],p29[2],p30[0],p30[1],p30[2],p31[0],p31[1],p31[2],p32[0],p32[1],p32[2],p33[0],p33[1],p33[2],p34[0],p34[1],p34[2],p35[0],p35[1],p35[2],p36[0],p36[1],p36[2],p37[0],p37[1],p37[2],p38[0],p38[1],p38[2],p39[0],p39[1],p39[2],p40[0],p40[1],p40[2],p41[0],p41[1],p41[2],p42[0],p42[1],p42[2],p43[0],p43[1],p43[2],p44[0],p44[1],p44[2],p45[0],p45[1],p45[2],p46[0],p46[1],p46[2],p47[0],p47[1],p47[2],p48[0],p48[1],p48[2],p49[0],p49[1],p49[2],p50[0],p50[1],p50[2],p51[0],p51[1],p51[2],p52[0],p52[1],p52[2],p53[0],p53[1],p53[2],p54[0],p54[1],p54[2],p55[0],p55[1],p55[2]));
+vertexDataLeaflet = new FloatList(anyArray(
+
+lnorm1[0]	,	lnorm1[1]	,	lnorm1[2]	,	p1[0]	,	p1[1]	,	p1[2]	,	lnorm2[0]	,	lnorm2[1]	,	lnorm2[2]	,	p1[0]	,	p1[1]	,	p1[2]	,	p2[0]	,	p2[1]	,	p2[2]	,	lnorm2[0]		,	lnorm2[1]		,	lnorm2[2]		,
+lnorm2[0]	,	lnorm2[1]	,	lnorm2[2]	,	p2[0]	,	p2[1]	,	p2[2]	,	lnorm3[0]	,	lnorm3[1]	,	lnorm3[2]	,	p2[0]	,	p2[1]	,	p2[2]	,	p3[0]	,	p3[1]	,	p3[2]	,	lnorm3[0]		,	lnorm3[1]		,	lnorm3[2]		,
+lnorm3[0]	,	lnorm3[1]	,	lnorm3[2]	,	p3[0]	,	p3[1]	,	p3[2]	,	lnorm4[0]	,	lnorm4[1]	,	lnorm4[2]	,	p3[0]	,	p3[1]	,	p3[2]	,	p4[0]	,	p4[1]	,	p4[2]	,	lnorm4[0]		,	lnorm4[1]		,	lnorm4[2]		,
+lnorm4[0]	,	lnorm4[1]	,	lnorm4[2]	,	p4[0]	,	p4[1]	,	p4[2]	,	lnorm5[0]	,	lnorm5[1]	,	lnorm5[2]	,	p4[0]	,	p4[1]	,	p4[2]	,	p5[0]	,	p5[1]	,	p5[2]	,	lnorm5[0]		,	lnorm5[1]		,	lnorm5[2]		,
+lnorm5[0]	,	lnorm5[1]	,	lnorm5[2]	,	p5[0]	,	p5[1]	,	p5[2]	,	lnorm6[0]	,	lnorm6[1]	,	lnorm6[2]	,	p5[0]	,	p5[1]	,	p5[2]	,	p6[0]	,	p6[1]	,	p6[2]	,	lnorm6[0]		,	lnorm6[1]		,	lnorm6[2]		,
+lnorm6[0]	,	lnorm6[1]	,	lnorm6[2]	,	p6[0]	,	p6[1]	,	p6[2]	,	lnorm7[0]	,	lnorm7[1]	,	lnorm7[2]	,	p6[0]	,	p6[1]	,	p6[2]	,	p7[0]	,	p7[1]	,	p7[2]	,	lnorm7[0]		,	lnorm7[1]		,	lnorm7[2]		,
+lnorm7[0]	,	lnorm7[1]	,	lnorm7[2]	,	p7[0]	,	p7[1]	,	p7[2]	,	lnorm8[0]	,	lnorm8[1]	,	lnorm8[2]	,	p7[0]	,	p7[1]	,	p7[2]	,	p8[0]	,	p8[1]	,	p8[2]	,	lnorm8[0]		,	lnorm8[1]		,	lnorm8[2]		,
+lnorm8[0]	,	lnorm8[1]	,	lnorm8[2]	,	p8[0]	,	p8[1]	,	p8[2]	,	lnorm9[0]	,	lnorm9[1]	,	lnorm9[2]	,	p8[0]	,	p8[1]	,	p8[2]	,	p9[0]	,	p9[1]	,	p9[2]	,	lnorm9[0]		,	lnorm9[1]		,	lnorm9[2]		,
+lnorm9[0]	,	lnorm9[1]	,	lnorm9[2]	,	p9[0]	,	p9[1]	,	p9[2]	,	lnorm10[0]	,	lnorm10[1]	,	lnorm10[2]	,	p9[0]	,	p9[1]	,	p9[2]	,	p10[0]	,	p10[1]	,	p10[2]	,	lnorm10[0]		,	lnorm10[1]		,	lnorm10[2]		,
+lnorm10[0]	,	lnorm10[1]	,	lnorm10[2]	,	p10[0]	,	p10[1]	,	p10[2]	,	lnorm11[0]	,	lnorm11[1]	,	lnorm11[2]	,	p10[0]	,	p10[1]	,	p10[2]	,	p11[0]	,	p11[1]	,	p11[2]	,	lnorm11[0]		,	lnorm11[1]		,	lnorm11[2]		,
+lnorm11[0]	,	lnorm11[1]	,	lnorm11[2]	,	p11[0]	,	p11[1]	,	p11[2]	,	lnorm12[0]	,	lnorm12[1]	,	lnorm12[2]	,	p11[0]	,	p11[1]	,	p11[2]	,	p12[0]	,	p12[1]	,	p12[2]	,	lnorm12[0]		,	lnorm12[1]		,	lnorm12[2]		,
+lnorm12[0]	,	lnorm12[1]	,	lnorm12[2]	,	p12[0]	,	p12[1]	,	p12[2]	,	lnorm13[0]	,	lnorm13[1]	,	lnorm13[2]	,	p12[0]	,	p12[1]	,	p12[2]	,	p13[0]	,	p13[1]	,	p13[2]	,	lnorm13[0]		,	lnorm13[1]		,	lnorm13[2]		,
+lnorm13[0]	,	lnorm13[1]	,	lnorm13[2]	,	p13[0]	,	p13[1]	,	p13[2]	,	lnorm14[0]	,	lnorm14[1]	,	lnorm14[2]	,	p13[0]	,	p13[1]	,	p13[2]	,	p14[0]	,	p14[1]	,	p14[2]	,	lnorm14[0]		,	lnorm14[1]		,	lnorm14[2]		,
+lnorm14[0]	,	lnorm14[1]	,	lnorm14[2]	,	p14[0]	,	p14[1]	,	p14[2]	,	lnorm15[0]	,	lnorm15[1]	,	lnorm15[2]	,	p14[0]	,	p14[1]	,	p14[2]	,	p15[0]	,	p15[1]	,	p15[2]	,	lnorm15[0]		,	lnorm15[1]		,	lnorm15[2]		,
+lnorm15[0]	,	lnorm15[1]	,	lnorm15[2]	,	p15[0]	,	p15[1]	,	p15[2]	,	lnorm16[0]	,	lnorm16[1]	,	lnorm16[2]	,	p15[0]	,	p15[1]	,	p15[2]	,	p16[0]	,	p16[1]	,	p16[2]	,	lnorm16[0]		,	lnorm16[1]		,	lnorm16[2]		,
+lnorm16[0]	,	lnorm16[1]	,	lnorm16[2]	,	p16[0]	,	p16[1]	,	p16[2]	,	lnorm17[0]	,	lnorm17[1]	,	lnorm17[2]	,	p16[0]	,	p16[1]	,	p16[2]	,	p17[0]	,	p17[1]	,	p17[2]	,	lnorm17[0]		,	lnorm17[1]		,	lnorm17[2]		,
+lnorm17[0]	,	lnorm17[1]	,	lnorm17[2]	,	p17[0]	,	p17[1]	,	p17[2]	,	lnorm18[0]	,	lnorm18[1]	,	lnorm18[2]	,	p17[0]	,	p17[1]	,	p17[2]	,	p18[0]	,	p18[1]	,	p18[2]	,	lnorm18[0]		,	lnorm18[1]		,	lnorm18[2]		,
+lnorm18[0]	,	lnorm18[1]	,	lnorm18[2]	,	p18[0]	,	p18[1]	,	p18[2]	,	lnorm19[0]	,	lnorm19[1]	,	lnorm19[2]	,	p18[0]	,	p18[1]	,	p18[2]	,	p19[0]	,	p19[1]	,	p19[2]	,	lnorm19[0]		,	lnorm19[1]		,	lnorm19[2]		,
+lnorm19[0]	,	lnorm19[1]	,	lnorm19[2]	,	p19[0]	,	p19[1]	,	p19[2]	,	lnorm20[0]	,	lnorm20[1]	,	lnorm20[2]	,	p19[0]	,	p19[1]	,	p19[2]	,	p20[0]	,	p20[1]	,	p20[2]	,	lnorm20[0]		,	lnorm20[1]		,	lnorm20[2]		,
+lnorm20[0]	,	lnorm20[1]	,	lnorm20[2]	,	p20[0]	,	p20[1]	,	p20[2]	,	lnorm21[0]	,	lnorm21[1]	,	lnorm21[2]	,	p20[0]	,	p20[1]	,	p20[2]	,	p21[0]	,	p21[1]	,	p21[2]	,	lnorm21[0]		,	lnorm21[1]		,	lnorm21[2]		,
+lnorm21[0]	,	lnorm21[1]	,	lnorm21[2]	,	p21[0]	,	p21[1]	,	p21[2]	,	lnorm22[0]	,	lnorm22[1]	,	lnorm22[2]	,	p21[0]	,	p21[1]	,	p21[2]	,	p22[0]	,	p22[1]	,	p22[2]	,	lnorm22[0]		,	lnorm22[1]		,	lnorm22[2]		,
+lnorm22[0]	,	lnorm22[1]	,	lnorm22[2]	,	p22[0]	,	p22[1]	,	p22[2]	,	lnorm23[0]	,	lnorm23[1]	,	lnorm23[2]	,	p22[0]	,	p22[1]	,	p22[2]	,	p23[0]	,	p23[1]	,	p23[2]	,	lnorm23[0]		,	lnorm23[1]		,	lnorm23[2]		,
+lnorm23[0]	,	lnorm23[1]	,	lnorm23[2]	,	p23[0]	,	p23[1]	,	p23[2]	,	lnorm24[0]	,	lnorm24[1]	,	lnorm24[2]	,	p23[0]	,	p23[1]	,	p23[2]	,	p24[0]	,	p24[1]	,	p24[2]	,	lnorm24[0]		,	lnorm24[1]		,	lnorm24[2]		,
+lnorm24[0]	,	lnorm24[1]	,	lnorm24[2]	,	p24[0]	,	p24[1]	,	p24[2]	,	lnorm25[0]	,	lnorm25[1]	,	lnorm25[2]	,	p24[0]	,	p24[1]	,	p24[2]	,	p25[0]	,	p25[1]	,	p25[2]	,	lnorm25[0]		,	lnorm25[1]		,	lnorm25[2]		,
+lnorm25[0]	,	lnorm25[1]	,	lnorm25[2]	,	p25[0]	,	p25[1]	,	p25[2]	,	lnorm26[0]	,	lnorm26[1]	,	lnorm26[2]	,	p25[0]	,	p25[1]	,	p25[2]	,	p26[0]	,	p26[1]	,	p26[2]	,	lnorm26[0]		,	lnorm26[1]		,	lnorm26[2]		,
+lnorm26[0]	,	lnorm26[1]	,	lnorm26[2]	,	p26[0]	,	p26[1]	,	p26[2]	,	lnorm27[0]	,	lnorm27[1]	,	lnorm27[2]	,	p26[0]	,	p26[1]	,	p26[2]	,	p27[0]	,	p27[1]	,	p27[2]	,	lnorm27[0]		,	lnorm27[1]		,	lnorm27[2]		,
+lnorm27[0]	,	lnorm27[1]	,	lnorm27[2]	,	p27[0]	,	p27[1]	,	p27[2]	,	lnorm28[0]	,	lnorm28[1]	,	lnorm28[2]	,	p27[0]	,	p27[1]	,	p27[2]	,	p28[0]	,	p28[1]	,	p28[2]	,	lnorm28[0]		,	lnorm28[1]		,	lnorm28[2]		,
+lnorm28[0]	,	lnorm28[1]	,	lnorm28[2]	,	p28[0]	,	p28[1]	,	p28[2]	,	lnorm29[0]	,	lnorm29[1]	,	lnorm29[2]	,	p28[0]	,	p28[1]	,	p28[2]	,	p29[0]	,	p29[1]	,	p29[2]	,	lnorm29[0]		,	lnorm29[1]		,	lnorm29[2]		,
+lnorm29[0]	,	lnorm29[1]	,	lnorm29[2]	,	p29[0]	,	p29[1]	,	p29[2]	,	lnorm30[0]	,	lnorm30[1]	,	lnorm30[2]	,	p29[0]	,	p29[1]	,	p29[2]	,	p30[0]	,	p30[1]	,	p30[2]	,	lnorm30[0]		,	lnorm30[1]		,	lnorm30[2]		,
+lnorm30[0]	,	lnorm30[1]	,	lnorm30[2]	,	p30[0]	,	p30[1]	,	p30[2]	,	lnorm31[0]	,	lnorm31[1]	,	lnorm31[2]	,	p30[0]	,	p30[1]	,	p30[2]	,	p31[0]	,	p31[1]	,	p31[2]	,	lnorm31[0]		,	lnorm31[1]		,	lnorm31[2]		,
+
+
+p1R[0]	,	p1R[1]	,	p1R[2]	,	lnorm1[0]	,	lnorm1[1]	,	lnorm1[2]	,	lnorm2[0]	,	lnorm2[1]	,	lnorm2[2]	,	p1R[0]	,	p1R[1]	,	p1R[2]	,	lnorm2[0]	,	lnorm2[1]	,	lnorm2[2]	,	p2R[0]	,	p2R[1]	,	p2R[2],
+p2R[0]	,	p2R[1]	,	p2R[2]	,	lnorm2[0]	,	lnorm2[1]	,	lnorm2[2]	,	lnorm3[0]	,	lnorm3[1]	,	lnorm3[2]	,	p2R[0]	,	p2R[1]	,	p2R[2]	,	lnorm3[0]	,	lnorm3[1]	,	lnorm3[2]	,	p3R[0]	,	p3R[1]	,	p3R[2]	,
+p3R[0]	,	p3R[1]	,	p3R[2]	,	lnorm3[0]	,	lnorm3[1]	,	lnorm3[2]	,	lnorm4[0]	,	lnorm4[1]	,	lnorm4[2]	,	p3R[0]	,	p3R[1]	,	p3R[2]	,	lnorm4[0]	,	lnorm4[1]	,	lnorm4[2]	,	p4R[0]	,	p4R[1]	,	p4R[2]	,
+p4R[0]	,	p4R[1]	,	p4R[2]	,	lnorm4[0]	,	lnorm4[1]	,	lnorm4[2]	,	lnorm5[0]	,	lnorm5[1]	,	lnorm5[2]	,	p4R[0]	,	p4R[1]	,	p4R[2]	,	lnorm5[0]	,	lnorm5[1]	,	lnorm5[2]	,	p5R[0]	,	p5R[1]	,	p5R[2]	,
+p5R[0]	,	p5R[1]	,	p5R[2]	,	lnorm5[0]	,	lnorm5[1]	,	lnorm5[2]	,	lnorm6[0]	,	lnorm6[1]	,	lnorm6[2]	,	p5R[0]	,	p5R[1]	,	p5R[2]	,	lnorm6[0]	,	lnorm6[1]	,	lnorm6[2]	,	p6R[0]	,	p6R[1]	,	p6R[2]	,
+p6R[0]	,	p6R[1]	,	p6R[2]	,	lnorm6[0]	,	lnorm6[1]	,	lnorm6[2]	,	lnorm7[0]	,	lnorm7[1]	,	lnorm7[2]	,	p6R[0]	,	p6R[1]	,	p6R[2]	,	lnorm7[0]	,	lnorm7[1]	,	lnorm7[2]	,	p7R[0]	,	p7R[1]	,	p7R[2]	,
+p7R[0]	,	p7R[1]	,	p7R[2]	,	lnorm7[0]	,	lnorm7[1]	,	lnorm7[2]	,	lnorm8[0]	,	lnorm8[1]	,	lnorm8[2]	,	p7R[0]	,	p7R[1]	,	p7R[2]	,	lnorm8[0]	,	lnorm8[1]	,	lnorm8[2]	,	p8R[0]	,	p8R[1]	,	p8R[2]	,
+p8R[0]	,	p8R[1]	,	p8R[2]	,	lnorm8[0]	,	lnorm8[1]	,	lnorm8[2]	,	lnorm9[0]	,	lnorm9[1]	,	lnorm9[2]	,	p8R[0]	,	p8R[1]	,	p8R[2]	,	lnorm9[0]	,	lnorm9[1]	,	lnorm9[2]	,	p9R[0]	,	p9R[1]	,	p9R[2]	,
+p9R[0]	,	p9R[1]	,	p9R[2]	,	lnorm9[0]	,	lnorm9[1]	,	lnorm9[2]	,	lnorm10[0]	,	lnorm10[1]	,	lnorm10[2]	,	p9R[0]	,	p9R[1]	,	p9R[2]	,	lnorm10[0]	,	lnorm10[1]	,	lnorm10[2]	,	p10R[0]	,	p10R[1]	,	p10R[2]	,
+p10R[0]	,	p10R[1]	,	p10R[2]	,	lnorm10[0]	,	lnorm10[1]	,	lnorm10[2]	,	lnorm11[0]	,	lnorm11[1]	,	lnorm11[2]	,	p10R[0]	,	p10R[1]	,	p10R[2]	,	lnorm11[0]	,	lnorm11[1]	,	lnorm11[2]	,	p11R[0]	,	p11R[1]	,	p11R[2]	,
+p11R[0]	,	p11R[1]	,	p11R[2]	,	lnorm11[0]	,	lnorm11[1]	,	lnorm11[2]	,	lnorm12[0]	,	lnorm12[1]	,	lnorm12[2]	,	p11R[0]	,	p11R[1]	,	p11R[2]	,	lnorm12[0]	,	lnorm12[1]	,	lnorm12[2]	,	p12R[0]	,	p12R[1]	,	p12R[2]	,
+p12R[0]	,	p12R[1]	,	p12R[2]	,	lnorm12[0]	,	lnorm12[1]	,	lnorm12[2]	,	lnorm13[0]	,	lnorm13[1]	,	lnorm13[2]	,	p12R[0]	,	p12R[1]	,	p12R[2]	,	lnorm13[0]	,	lnorm13[1]	,	lnorm13[2]	,	p13R[0]	,	p13R[1]	,	p13R[2]	,
+p13R[0]	,	p13R[1]	,	p13R[2]	,	lnorm13[0]	,	lnorm13[1]	,	lnorm13[2]	,	lnorm14[0]	,	lnorm14[1]	,	lnorm14[2]	,	p13R[0]	,	p13R[1]	,	p13R[2]	,	lnorm14[0]	,	lnorm14[1]	,	lnorm14[2]	,	p14R[0]	,	p14R[1]	,	p14R[2]	,
+p14R[0]	,	p14R[1]	,	p14R[2]	,	lnorm14[0]	,	lnorm14[1]	,	lnorm14[2]	,	lnorm15[0]	,	lnorm15[1]	,	lnorm15[2]	,	p14R[0]	,	p14R[1]	,	p14R[2]	,	lnorm15[0]	,	lnorm15[1]	,	lnorm15[2]	,	p15R[0]	,	p15R[1]	,	p15R[2]	,
+p15R[0]	,	p15R[1]	,	p15R[2]	,	lnorm15[0]	,	lnorm15[1]	,	lnorm15[2]	,	lnorm16[0]	,	lnorm16[1]	,	lnorm16[2]	,	p15R[0]	,	p15R[1]	,	p15R[2]	,	lnorm16[0]	,	lnorm16[1]	,	lnorm16[2]	,	p16R[0]	,	p16R[1]	,	p16R[2]	,
+p16R[0]	,	p16R[1]	,	p16R[2]	,	lnorm16[0]	,	lnorm16[1]	,	lnorm16[2]	,	lnorm17[0]	,	lnorm17[1]	,	lnorm17[2]	,	p16R[0]	,	p16R[1]	,	p16R[2]	,	lnorm17[0]	,	lnorm17[1]	,	lnorm17[2]	,	p17R[0]	,	p17R[1]	,	p17R[2]	,
+p17R[0]	,	p17R[1]	,	p17R[2]	,	lnorm17[0]	,	lnorm17[1]	,	lnorm17[2]	,	lnorm18[0]	,	lnorm18[1]	,	lnorm18[2]	,	p17R[0]	,	p17R[1]	,	p17R[2]	,	lnorm18[0]	,	lnorm18[1]	,	lnorm18[2]	,	p18R[0]	,	p18R[1]	,	p18R[2]	,
+p18R[0]	,	p18R[1]	,	p18R[2]	,	lnorm18[0]	,	lnorm18[1]	,	lnorm18[2]	,	lnorm19[0]	,	lnorm19[1]	,	lnorm19[2]	,	p18R[0]	,	p18R[1]	,	p18R[2]	,	lnorm19[0]	,	lnorm19[1]	,	lnorm19[2]	,	p19R[0]	,	p19R[1]	,	p19R[2]	,
+p19R[0]	,	p19R[1]	,	p19R[2]	,	lnorm19[0]	,	lnorm19[1]	,	lnorm19[2]	,	lnorm20[0]	,	lnorm20[1]	,	lnorm20[2]	,	p19R[0]	,	p19R[1]	,	p19R[2]	,	lnorm20[0]	,	lnorm20[1]	,	lnorm20[2]	,	p20R[0]	,	p20R[1]	,	p20R[2]	,
+p20R[0]	,	p20R[1]	,	p20R[2]	,	lnorm20[0]	,	lnorm20[1]	,	lnorm20[2]	,	lnorm21[0]	,	lnorm21[1]	,	lnorm21[2]	,	p20R[0]	,	p20R[1]	,	p20R[2]	,	lnorm21[0]	,	lnorm21[1]	,	lnorm21[2]	,	p21R[0]	,	p21R[1]	,	p21R[2]	,
+p21R[0]	,	p21R[1]	,	p21R[2]	,	lnorm21[0]	,	lnorm21[1]	,	lnorm21[2]	,	lnorm22[0]	,	lnorm22[1]	,	lnorm22[2]	,	p21R[0]	,	p21R[1]	,	p21R[2]	,	lnorm22[0]	,	lnorm22[1]	,	lnorm22[2]	,	p22R[0]	,	p22R[1]	,	p22R[2]	,
+p22R[0]	,	p22R[1]	,	p22R[2]	,	lnorm22[0]	,	lnorm22[1]	,	lnorm22[2]	,	lnorm23[0]	,	lnorm23[1]	,	lnorm23[2]	,	p22R[0]	,	p22R[1]	,	p22R[2]	,	lnorm23[0]	,	lnorm23[1]	,	lnorm23[2]	,	p23R[0]	,	p23R[1]	,	p23R[2]	,
+p23R[0]	,	p23R[1]	,	p23R[2]	,	lnorm23[0]	,	lnorm23[1]	,	lnorm23[2]	,	lnorm24[0]	,	lnorm24[1]	,	lnorm24[2]	,	p23R[0]	,	p23R[1]	,	p23R[2]	,	lnorm24[0]	,	lnorm24[1]	,	lnorm24[2]	,	p24R[0]	,	p24R[1]	,	p24R[2]	,
+p24R[0]	,	p24R[1]	,	p24R[2]	,	lnorm24[0]	,	lnorm24[1]	,	lnorm24[2]	,	lnorm25[0]	,	lnorm25[1]	,	lnorm25[2]	,	p24R[0]	,	p24R[1]	,	p24R[2]	,	lnorm25[0]	,	lnorm25[1]	,	lnorm25[2]	,	p25R[0]	,	p25R[1]	,	p25R[2]	,
+p25R[0]	,	p25R[1]	,	p25R[2]	,	lnorm25[0]	,	lnorm25[1]	,	lnorm25[2]	,	lnorm26[0]	,	lnorm26[1]	,	lnorm26[2]	,	p25R[0]	,	p25R[1]	,	p25R[2]	,	lnorm26[0]	,	lnorm26[1]	,	lnorm26[2]	,	p26R[0]	,	p26R[1]	,	p26R[2]	,
+p26R[0]	,	p26R[1]	,	p26R[2]	,	lnorm26[0]	,	lnorm26[1]	,	lnorm26[2]	,	lnorm27[0]	,	lnorm27[1]	,	lnorm27[2]	,	p26R[0]	,	p26R[1]	,	p26R[2]	,	lnorm27[0]	,	lnorm27[1]	,	lnorm27[2]	,	p27R[0]	,	p27R[1]	,	p27R[2]	,
+p27R[0]	,	p27R[1]	,	p27R[2]	,	lnorm27[0]	,	lnorm27[1]	,	lnorm27[2]	,	lnorm28[0]	,	lnorm28[1]	,	lnorm28[2]	,	p27R[0]	,	p27R[1]	,	p27R[2]	,	lnorm28[0]	,	lnorm28[1]	,	lnorm28[2]	,	p28R[0]	,	p28R[1]	,	p28R[2]	,
+p28R[0]	,	p28R[1]	,	p28R[2]	,	lnorm28[0]	,	lnorm28[1]	,	lnorm28[2]	,	lnorm29[0]	,	lnorm29[1]	,	lnorm29[2]	,	p28R[0]	,	p28R[1]	,	p28R[2]	,	lnorm29[0]	,	lnorm29[1]	,	lnorm29[2]	,	p29R[0]	,	p29R[1]	,	p29R[2]	,
+p29R[0]	,	p29R[1]	,	p29R[2]	,	lnorm29[0]	,	lnorm29[1]	,	lnorm29[2]	,	lnorm30[0]	,	lnorm30[1]	,	lnorm30[2]	,	p29R[0]	,	p29R[1]	,	p29R[2]	,	lnorm30[0]	,	lnorm30[1]	,	lnorm30[2]	,	p30R[0]	,	p30R[1]	,	p30R[2]	,
+p30R[0]	,	p30R[1]	,	p30R[2]	,	lnorm30[0]	,	lnorm30[1]	,	lnorm30[2]	,	lnorm31[0]	,	lnorm31[1]	,	lnorm31[2]	,	p30R[0]	,	p30R[1]	,	p30R[2]	,	lnorm31[0]	,	lnorm31[1]	,	lnorm31[2]	,	p31R[0]	,	p31R[1]	,	p31R[2]	
+
+));
+
+//FloatList curved =        adjustLengthWidthAndApplyCurvature(vertexDataLeaflet, 10,1); // Apply curvature along x-axis
+
+other_leaves_mesh = getMesh(vertexDataLeaflet);
+
+}

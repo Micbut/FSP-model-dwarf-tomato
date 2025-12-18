@@ -1,0 +1,53 @@
+import static parameters.*;
+import static parameters_derived.*;
+import static auxiliary_tools_and_charts.*;
+
+import de.grogra.gpuflux.imp3d.spectral.IrregularSpectralCurve;
+import de.grogra.ray.physics.Spectrum;
+import de.grogra.gpuflux.scene.experiment.Measurement;
+import de.grogra.gpuflux.tracer.FluxLightModelTracer.*;
+import de.grogra.gpuflux.imp3d.objects.*;
+import de.grogra.ray.physics.Spectrum3d;
+import java.util.Arrays; 
+import java.util.ArrayList;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.util.stream.IntStream;
+
+static void lightModelSettings () {
+	lmGPU.setMeasureMode(MeasureMode.FULL_SPECTRUM);
+	lmGPU.setSpectralBuckets(61);
+	lmGPU.setSpectralDomain(400, 700);
+}
+
+/******************************************************************************
+Flux Light model - GPU
+******************************************************************************/
+
+const FluxLightModel lmGPU = new FluxLightModel (RAYS_GPU, RAY_DEPTH);
+
+module RedBlueLED extends LightNode {
+	{
+		setLight(
+			new SpectralLight(
+				new IrregularSpectralCurve(WAVELENGTHS, AMPLITUDES)
+			).(
+				setPower(LIGHT_POWER),
+				setLight(
+					new PhysicalLight(LIGHT_DISTRIBUTION).(
+						setVisualize(VISIBLE_RAYS)
+					)
+				)
+			)
+		);
+	}
+};
+
+/******************************************************************************
+Simple Light model - CPU
+******************************************************************************/
+
+static LightModel lm = new LightModel(RAYS_CPU, RAY_DEPTH);  
+   

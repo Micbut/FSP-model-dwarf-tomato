@@ -1,0 +1,1470 @@
+import static parameters.*;
+import static plant_level.*;
+import static crop_level.*;
+import static parameters_derived.*;
+import static light.*;
+import static auxiliary_tools_and_charts.*;
+import static photosynthesis.*;
+import static MTG_importer.*;
+
+import de.grogra.gpuflux.imp3d.spectral.IrregularSpectralCurve; 
+import de.grogra.gpuflux.imp3d.shading.ChannelSPD;
+import de.grogra.gpuflux.scene.experiment.Measurement;
+import java.util.*;
+import de.grogra.xl.util.FloatList;
+import de.grogra.xl.util.IntList;
+
+/******************************************************************************
+Organs
+*******************************************************************************/
+
+abstract module Organ(super.length) extends M {	
+	// 1. Parameters and attributes common to all plant organs considered
+	
+	// 1.1 Organ identification parameters, and topology
+	CropBase	cb;
+	PlantBase	pb;								// plant identifier
+	int			plant_number;					// plant number in the fields
+	int			organ_type;						// number of identificatin of this organ: 1 = meristem;  = internode;  = cotyledon;  = leaf;  = truss;  = ;  = 
+	int			order;							// order (0 = main stem; order 1 = first order branches)
+	int			rank;							// phytomer rank (cotyledons and the internode below them are rank 0)
+	int			parent_rank;					// phytomer rank of parent organ
+	boolean		isFruit;						// Boolean to label fuits since they require specific functions to calculate dry_biomass_growth_mg
+	boolean		isRoot;							// Boolean to label root since they require specific functions to calculate dry_biomass_growth_mg
+	boolean		isStemTruss;					// Boolean to label the stemmy part of the truss since they should not included in root calculations (as well as fruits). At the moemnt stemTruss and fruits are 2 separate modules. However, the 3d representation and so the light interactions of the stem truss are included in the fruit module, while the calculation related to the growth are specified in the module stem truss that however has no 3d representation.
+	{length = 0;}								// Value to be sure that an organ is created with no default length
+	
+	// 1.2 Age and Time related parameters
+	int			age_in_days_d;							// organ age in days (days)
+	float		age_previous_day_in_degree_days_dd;		// organ age in the previous time step in degree days(dd)
+	float		age_in_degree_days_dd;					// organ age in degree days (dd)	
+	float		time_step_in_degree_days_dd;			// Time step (1 day) in degree days (dd)
+	
+	// 1.3 Maintenance respiration paramter
+	float		c_q_10_respiration =C_Q_10_MAINTENANCE_RESPIRATION;
+	float		f =F;
+	// 2. Methods common to all plant organs considered
+ 
+ 	// 2.1 Calculate organ age
+	void calcAge() {
+		age_previous_day_in_degree_days_dd	=	age_in_degree_days_dd;	
+		age_in_degree_days_dd				+=	AVERAGE_TEMP - BASE_TEMPERATURE;
+		age_in_days_d						++;	
+		time_step_in_degree_days_dd			=	age_in_degree_days_dd-age_previous_day_in_degree_days_dd;
+	}
+}
+
+module Meristem extends Organ {
+	
+	//  1. Parameters specific of Meristem
+	boolean has_already_auxiliary_bud;		//Bollean used by the L-system grammar to determine wether there is already an auxiliary bud in that position
+	boolean	has_already_truss_bud;			//Bollean used by the L-system grammar to determine wether there is already an truss bud in that position
+	
+	// 2. Methods specific of Meristem
+
+	// 2.1 Initiation of main meristem
+	void mtgConstructorMain(int row, PlantBase pb){
+		this.pb 					= 	pb;
+		plant_number				=	pb[plant_number];		
+		organ_type					=	1;
+		rank						=	Integer.parseInt( MTG[row][column_rank]);
+		parent_rank					=	rank -1;
+		order						=	Integer.parseInt( MTG[row][column_order]);
+		age_in_degree_days_dd		= 	Float.parseFloat(MTG[row][column_degreeDays]);
+		has_already_auxiliary_bud	=	false;
+		has_already_truss_bud		=	false;
+	}
+	
+	void mtgConstructorSide(int row, PlantBase pb){
+		this.pb 					= 	pb;
+		plant_number				=	pb[plant_number];		
+		organ_type					=	1;
+		rank						=	Integer.parseInt( MTG[row][column_rank]);
+		parent_rank					=	rank -1;
+		order						=	Integer.parseInt( MTG[row][column_order]);
+		age_in_degree_days_dd		= 	Float.parseFloat(MTG[row][column_degreeDays]);
+		has_already_auxiliary_bud	=	false;
+		has_already_truss_bud		=	false;
+	}
+	
+	// 2.2 increase in identifiers after a new phytomer creation
+	void increment()
+	{
+		parent_rank					=	rank;
+		rank						:+=	1;
+		age_in_degree_days_dd 		=	0;
+		age_in_days_d				=	0;
+		has_already_auxiliary_bud	=	false;
+		has_already_truss_bud		=	false;
+	}	
+	
+	// 2.3 initiation of lateral meristems
+	void initiateAxillary(Meristem a)
+	{
+		pb							= 	a[pb];
+		plant_number				=	a.plant_number;
+		organ_type					=	1;
+		rank						=	1;
+		order						=	a.order+1; 
+		parent_rank					=	a.rank-1;
+		age_in_degree_days_dd 		=	0;
+		age_in_days_d				=	0;
+		isFruit						=	false;
+		isRoot						=	false;
+		isStemTruss					=	false;	
+		has_already_auxiliary_bud	=	true;
+		has_already_truss_bud		=	false;
+	}
+	
+	void initiateTruss(Meristem a)
+	{
+		pb							= 	a[pb];
+		plant_number				=	a.plant_number;
+		organ_type					=	1;
+		rank						=	a.rank;
+		order						=	a.order; 
+		parent_rank					=	a.rank-1;
+		age_in_degree_days_dd 		=	0;
+		age_in_days_d				=	0;
+		isFruit						=	true;
+		isRoot						=	false;	
+		isStemTruss					=	false;	
+		has_already_auxiliary_bud	=	true;
+		has_already_truss_bud		=	true;
+	}
+} 
+
+module GrowingOrgan extends Organ {
+
+	// 1.3 Geometry parameters
+	double		area_m2;							// surface area of the organ (m2)
+
+	// 1.4 Light absorption
+	double		PAR_incoming_per_organ_umol;		// PAR incoming on the organ (umol)
+	double		PAR_incoming_per_organ_umolm2s;		// PAR incoming bsorbed radiation per unit area and time (umol / m2 / s)
+	
+	String		spectrum_data;						//array of how much PAR is incoming for an organ at each wavelength 		
+	Measurement	spectrum;							// 
+		
+	ChannelSPD	reflectivity_top_side;				//Top of the organ reflectivity
+	ChannelSPD	transmissivity_top_side;			//Top of the organ transmissivity
+	Phong		topShader = new Phong();			//Top of the organ shader
+
+	ChannelSPD	a_reflectivity_top_side;			//Top of the organ reflectivity
+	ChannelSPD	a_transmissivity_top_side;			//Top of the organ transmissivity
+	Phong		a_topShader = new Phong();			//Top of the organ shader
+	
+	
+	ChannelSPD	reflectivity_bottom_side;			//Bottom of the organ reflectivity
+	ChannelSPD	transmissivity_bottom_side;			//Bottom of the organ transmissivity
+	Phong		bottomShader = new Phong();			//Bottom of the organ shader
+	
+	SideSwitchShader leafBothSideShader;			// distinctive upper (adaxial) and lower (abaxial) surfaces
+	SideSwitchShader petioleBothSideShader;			//
+	
+	// 1.5 Photosynthesys
+	double	Amax_umolm2s;							// maximum photosynthesis rate (umol CO2 / m2 / s)
+	double	quantum_efficiency;						// Thornley photosynthetic paramter (#)
+	double	thornley_convexity;						// Thornley photosynthetic paramter (#)
+	double	dark_respiration_rate_umolm2s;			// dark respiration rate (umol CO2 / m2 / s)
+	double	photosynthesis_rate_umolm2s;			// rate of photosynthesis (umol CO2 / m2 / s)
+	double	carbon_assimilation_organ_daily_umol;	// daily CO2 assimilation (umol CO2 / day)
+
+	double Asat_to_PAR_factor;
+	double Asat_offset;
+	double duration_acclimation;
+	double asat_check;
+	
+	// 1.6 Growth parameters
+	double	sink_strength_relative_to_above_ground;
+	double	unused_assimilates;
+	double	dry_biomass_potential_max_mg;			// max potential biomass_mg (mg)
+	double	growth_duration_dd;						// organ biomass_growth_mg duration (dd)
+	double	age_maximum_growth_dd;					// age at maximum dry_biomass_growth_mg (dd)
+	double	dry_biomass_growth_mg;					// dry biomass gain per time step (mg)
+	double	dry_biomass_mg;							// dry biomass (mg)
+	double	fraction_of_potenital_dry_biomass;		// fraction of potential dry biomass (#)
+
+	double	assimilates_available_mg;				// assimilates_mg available for dry_biomass_growth_mg (mg)
+	double	assimilates_allocated_to_growth_and_min_buffer_mg;				// assimilates_mg allocated (mg)
+	double	sink_strength_per_degree_day_mgdd;		// Potential_dry_biomass_growth_rate (mg substrate / dd)
+	double	sink_strength_max_dd;					// Maximum potential dry biomass_growth rate of the organ (mg substrate / dd)
+	double	sink_strength_per_day_mg;				// Sink Strength per time step (mg)
+	double	sink_strength_per_day_just_for_growth_and_not_respiration_growth_mg;				// Sink Strength per time step (mg)
+	double	dry_biomass_growth_respiration;			// dry biomass growth respiration in fraction of grwoth (#)	
+	double	maintenanceRespiration;
+	double	maintenanceDemand;
+	
+	boolean doesPhotosynthesis;						// Boolean to label leaves since that's where the photosynthesis happen in the current version of the model
+	double PAR_incoming_per_organ_past_day_umolm2s;			
+	double check_ss;
+	
+//	double	min_buffer_percentage				=	MIN_BUFFER_PERCENTAGE;		
+	double	max_buffer_percentage				=	MAX_BUFFER_PERCENTAGE;  
+	
+	double	dry_biomass_buffer_usable_mg;
+	double	dry_biomass_buffer_mg;
+	double	dry_biomass_buffer_variation_growth_mg;
+	double	dry_biomass_structural_and_min_pool_mg;
+	
+	float 	fresh_biomass_harvested_mg;
+	float 	dry_biomass_harvested_mg;
+	
+	// 3. Methods common to all plant organs considered except Truss
+	
+	// 3.1 Calculate light absorption
+	
+	void calcLight(){
+		
+		if(area_m2>0){	
+			PAR_incoming_per_organ_past_day_umolm2s	=	PAR_incoming_per_organ_umolm2s;
+			
+			Measurement spectrum			=	lmGPU.getAbsorbedPowerMeasurement(this);
+			
+			PAR_incoming_per_organ_umol		=	0; 												// the incoming light is set to zero at every calculation
+			for ( int i = 0; i<=60; i++){
+				PAR_incoming_per_organ_umol	=	PAR_incoming_per_organ_umol + spectrum.data[i];	//	Add up how much PAR was Absorbed
+			}	
+			spectrum_data					=	Arrays.toString(spectrum.data);					//	Array of how much PAR is incoming for an object at each wavelength 
+			
+			PAR_incoming_per_organ_umolm2s	=	PAR_incoming_per_organ_umol/area_m2;
+		}		
+
+	}
+		
+	// 3.2 Calculate photosynthesis
+	void calcPhotosynthesis(){			
+		float leaf_photo_factor;
+		
+		if(area_m2>0 ){	
+			quantum_efficiency					=	 QUANTUM_EFFICIENCY_MEAN; 
+			thornley_convexity					=	CONVEXITY_MEAN;			
+			Amax_umolm2s						=	ASAT;
+			
+			
+			if (organ_type == 4){leaf_photo_factor = 1;}else{leaf_photo_factor=NON_LEAF_PHOTOSYNTHESIS_FACTOR;}
+			
+			Thornley model							=	new Thornley();
+			
+			if(doesPhotosynthesis && (pb[dry_biomass_assimilates_and_available_buffer_mg]<MIN_IN_BUFFER_PHOTOINIBITION*max_buffer_percentage*pb[dry_biomass_plant_with_roots_mg])|| isStatic==true){
+							
+				photosynthesis_rate_umolm2s				=	leaf_photo_factor*model.calc(PAR_incoming_per_organ_umolm2s,Amax_umolm2s,quantum_efficiency,thornley_convexity);
+				carbon_assimilation_organ_daily_umol	=	photosynthesis_rate_umolm2s * area_m2 * PHOTOPERIOD*60*60;
+				
+			}else if(doesPhotosynthesis && (	
+			( pb[dry_biomass_assimilates_and_available_buffer_mg]>=MIN_IN_BUFFER_PHOTOINIBITION*max_buffer_percentage*pb[dry_biomass_plant_with_roots_mg] )
+			&&
+			( pb[dry_biomass_assimilates_and_available_buffer_mg]<MAX_IN_BUFFER_PHOTOINIBITION*max_buffer_percentage*pb[dry_biomass_plant_with_roots_mg]) 
+			))
+			{
+				photosynthesis_rate_umolm2s				=	leaf_photo_factor*	((MAX_IN_BUFFER_PHOTOINIBITION*max_buffer_percentage*pb[dry_biomass_plant_with_roots_mg] - pb[dry_biomass_assimilates_and_available_buffer_mg] )/ ( MAX_IN_BUFFER_PHOTOINIBITION*max_buffer_percentage*pb[dry_biomass_plant_with_roots_mg] - MIN_IN_BUFFER_PHOTOINIBITION*max_buffer_percentage*pb[dry_biomass_plant_with_roots_mg]))* model.calc(PAR_incoming_per_organ_umolm2s,Amax_umolm2s,quantum_efficiency,thornley_convexity);
+
+				carbon_assimilation_organ_daily_umol	=	photosynthesis_rate_umolm2s * area_m2 * PHOTOPERIOD*60*60;
+			}else{
+				photosynthesis_rate_umolm2s				=	0;
+				carbon_assimilation_organ_daily_umol	=	0;
+			}	
+		}				
+
+	}	
+	void calcMaintenanceRespiration(){
+	if(!isStatic){
+		maintenanceDemand = maintenanceRespiration * dry_biomass_structural_and_min_pool_mg	*	Math.pow(c_q_10_respiration, (AVERAGE_TEMP - 25)/10) * (1 - Math.pow(Math.E, -f*pb[relative_growth_rate_last_5_days])) ;
+
+	}else{
+		maintenanceDemand = maintenanceRespiration * dry_biomass_mg							*	0.9	* Math.pow(c_q_10_respiration, (AVERAGE_TEMP - 25)/10)* (1 - Math.pow(Math.E, -f*RELATIVE_GROWTH_RATE_LAST_5_DAYS)) ;//0.04 is RGR around the time of the static simulation
+
+	}
+	}
+	// 3.3 Calculate sink strength (based on Yin et al. 2003)
+	void calcSinkStrengthAboveground(){	
+		if(!isFruit && !isRoot){
+			if (age_in_degree_days_dd >= growth_duration_dd || dry_biomass_mg>=dry_biomass_potential_max_mg) {
+				sink_strength_per_day_mg	=	0;
+				sink_strength_per_day_just_for_growth_and_not_respiration_growth_mg = 0;
+		}
+			else {
+				sink_strength_per_day_mg = (dry_biomass_potential_max_mg *(1+((growth_duration_dd-age_in_degree_days_dd)/(growth_duration_dd-age_maximum_growth_dd)))*Math.pow((age_in_degree_days_dd/growth_duration_dd),(growth_duration_dd/(growth_duration_dd-age_maximum_growth_dd))) - 			dry_biomass_potential_max_mg *(1+((growth_duration_dd-age_previous_day_in_degree_days_dd)/(growth_duration_dd-age_maximum_growth_dd)))*Math.pow((age_previous_day_in_degree_days_dd/growth_duration_dd),(growth_duration_dd/(growth_duration_dd-age_maximum_growth_dd))))*dry_biomass_growth_respiration;
+				sink_strength_per_day_just_for_growth_and_not_respiration_growth_mg = (dry_biomass_potential_max_mg *(1+((growth_duration_dd-age_in_degree_days_dd)/(growth_duration_dd-age_maximum_growth_dd)))*Math.pow((age_in_degree_days_dd/growth_duration_dd),(growth_duration_dd/(growth_duration_dd-age_maximum_growth_dd))) - 			dry_biomass_potential_max_mg *(1+((growth_duration_dd-age_previous_day_in_degree_days_dd)/(growth_duration_dd-age_maximum_growth_dd)))*Math.pow((age_previous_day_in_degree_days_dd/growth_duration_dd),(growth_duration_dd/(growth_duration_dd-age_maximum_growth_dd))));
+			}
+		}
+	}
+	
+	void calcSinkStrengthRoots(){
+		if (isRoot){
+			sink_strength_per_day_mg	=	sink_strength_relative_to_above_ground*pb[above_ground_organs_sink_strength_just_for_growth_and_not_respiration_growth_for_calculating_root_fraction]*dry_biomass_growth_respiration;
+		} 
+	}
+
+	// 3.4 Calculate assimilate allocation and actual dry biomass growth
+	void calcAssimilateAllocation(){
+		
+		if (pb[dry_biomass_assimilates_and_available_buffer_mg] >=	pb[sink_strength_per_day_mg]) {			
+			assimilates_allocated_to_growth_and_min_buffer_mg	=	sink_strength_per_day_mg;
+		} else {
+			assimilates_allocated_to_growth_and_min_buffer_mg	=	(sink_strength_per_day_mg / pb[sink_strength_per_day_mg] )* pb[dry_biomass_assimilates_and_available_buffer_mg];
+		}				
+		dry_biomass_growth_mg	=	assimilates_allocated_to_growth_and_min_buffer_mg/dry_biomass_growth_respiration;
+	}
+	
+	void calcAvaiableBufferAllocation(){
+		dry_biomass_buffer_usable_mg = (dry_biomass_structural_and_min_pool_mg / pb[dry_biomass_structural_and_min_pool_mg])*pb[dry_biomass_assimilates_and_available_buffer_mg];		
+	}
+
+	void calcBiomass(){
+			dry_biomass_structural_and_min_pool_mg		+=	dry_biomass_growth_mg	;			
+			dry_biomass_buffer_mg						=	dry_biomass_buffer_usable_mg ;
+			dry_biomass_mg								=	dry_biomass_structural_and_min_pool_mg + dry_biomass_buffer_mg;	
+	}
+	
+	// 3.5 calculate organ dimensions (implemented in specific organ modules)
+	void calcDimensions(){};
+};
+
+module Root extends GrowingOrgan {
+	//  1. Parameters specific of root
+		{	
+			maintenanceRespiration			=	MAINTENANCE_RESPIRATION_ROOT;
+			dry_biomass_growth_respiration	=	GROWTH_RESPIRATION_ROOT;
+		}
+
+	// 2. Methods specific of root	
+	
+	// 2.1 internode initiation
+	void initiate(PlantBase pb){
+		
+		this.pb 								= 	pb;
+		plant_number							=	pb[plant_number];		
+		organ_type								=	10;
+		isFruit									=	false;
+		isRoot									=	true;
+		isStemTruss								=	false;
+		doesPhotosynthesis						=	false;
+		
+		sink_strength_relative_to_above_ground	=	ROOT_FRACTION/(1-ROOT_FRACTION);	
+
+		//Top of the leaf
+		reflectivity_top_side		=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,LEAF_TOP_SPD ));
+		transmissivity_top_side		=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,LEAF_TOP_SPT));
+		topShader.setDiffuse(reflectivity_top_side);
+		topShader.setDiffuseTransparency(transmissivity_top_side);    
+		//Bottom of the leaf
+		reflectivity_bottom_side	=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, LEAF_BOTTOM_SPD));
+		transmissivity_bottom_side	=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, LEAF_BOTTOM_SPT));
+		bottomShader.setDiffuse(reflectivity_bottom_side);
+		bottomShader.setDiffuseTransparency(transmissivity_bottom_side);
+		//Both sides
+		leafBothSideShader = new SideSwitchShader(topShader, bottomShader);
+		
+	}
+
+	void calcRootStartBiomass(){
+		if(time == 0){
+			dry_biomass_mg				=	ROOT_FRACTION/(1-ROOT_FRACTION) * pb[dry_biomass_plant_above_ground_mg]+ pb[dry_biomass_plant_above_ground_mg]  ;
+			dry_biomass_structural_and_min_pool_mg		=	0.90*dry_biomass_mg; //assumption that at normality 10% is buffer
+			dry_biomass_buffer_mg			=	0.10*dry_biomass_mg;
+			dry_biomass_buffer_usable_mg	=	dry_biomass_buffer_mg;			
+		}
+	}
+	void calcDimensions(){}
+}==>Sphere(0.000000000000001).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,leafBothSideShader)));
+
+module Internode extends GrowingOrgan {
+	//  1. Parameters specific of Internode
+
+	double	internode_width_m;				// internode width (m)
+	double	length_increment_daily_m;		// length incrment per day (m)
+	double	biomass_per_length_mmmg;		// stem ratio length / dry_biomass_mg (mm/mg)
+	double	length_width_ratio;
+	
+	{		
+		dry_biomass_growth_respiration	=	GROWTH_RESPIRATION_STEM;
+		maintenanceRespiration			=	MAINTENANCE_RESPIRATION_STEM;
+	}
+
+	// 2. Methods specific of Internode	
+	
+	// 2.1 internode initiation
+	void initiate(Meristem a){
+		
+		pb 							= 	a[pb];
+		plant_number				= 	a[plant_number];
+		organ_type					=	2;
+		rank 						=	a[rank];
+		order						=	a[order];
+		isFruit						=	a[isFruit];
+		isRoot						=	a[isRoot];
+		isStemTruss					=	a[isStemTruss];
+
+		doesPhotosynthesis			=	true;
+		
+		if(order == 0){
+		
+			growth_duration_dd					=	normal(GROWTH_DURATION_INTERNODE_DD_MEAN, GROWTH_DURATION_INTERNODE_DD_STD);
+				age_maximum_growth_dd			=	normal(AGE_MAXIMUM_GROWTH_INTERNODE_DD_MEAN, AGE_MAXIMUM_GROWTH_INTERNODE_DD_STD);
+				dry_biomass_potential_max_mg	=	normal(DRY_BIOMASS_POTENTIAL_MAX_INTERNODE_MG_MEAN,  DRY_BIOMASS_POTENTIAL_MAX_INTERNODE_MG_STD);	
+
+		}else if(order ==1){
+				growth_duration_dd				=	normal(GROWTH_DURATION_INTERNODE_DD_MEAN, GROWTH_DURATION_INTERNODE_DD_STD);
+				age_maximum_growth_dd			=	normal(AGE_MAXIMUM_GROWTH_INTERNODE_DD_MEAN, AGE_MAXIMUM_GROWTH_INTERNODE_DD_STD);
+				dry_biomass_potential_max_mg	=	normal(DRY_BIOMASS_POTENTIAL_MAX_INTERNODE_MG_MEAN,  DRY_BIOMASS_POTENTIAL_MAX_INTERNODE_MG_STD)/2.5;		
+		}
+				
+		//optical properties
+		reflectivity_top_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,INTERNODE_SPD ));
+		transmissivity_top_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,INTERNODE_SPT));
+		topShader.setDiffuse(reflectivity_top_side);
+		topShader.setDiffuseTransparency(transmissivity_top_side);  
+				
+		reflectivity_bottom_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, INTERNODE_SPD));
+		transmissivity_bottom_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, INTERNODE_SPT));
+		bottomShader.setDiffuse(reflectivity_bottom_side);
+		bottomShader.setDiffuseTransparency(transmissivity_bottom_side);
+		
+		leafBothSideShader = new SideSwitchShader(topShader, topShader);
+		
+	}
+			
+	void mtgConstructor(int row, PlantBase pb){
+	//	this.cb 						= 	cb;
+		this.pb 						= 	pb;
+		plant_number					=	pb[plant_number];
+		rank							=	Integer.parseInt( MTG[row][column_rank]); 
+		order							=	Integer.parseInt( MTG[row][column_order]); 
+		doesPhotosynthesis				=	true;
+
+		if(isStatic==false){
+			dry_biomass_mg					=	normal(Float.parseFloat(MTG[row][column_dry_biomass_mg]), Float.parseFloat(MTG[row][column_dry_biomass_mg_sd]));
+			dry_biomass_structural_and_min_pool_mg		=	0.90*dry_biomass_mg; //assumption that at normality 10% is buffer
+			dry_biomass_buffer_mg			=	0.10*dry_biomass_mg;
+			
+			dry_biomass_buffer_usable_mg	=	dry_biomass_buffer_mg ;			
+			
+			age_in_degree_days_dd			= 	Float.parseFloat(MTG[row][column_degreeDays]);
+			dry_biomass_potential_max_mg	=	SA_factor_Internode_dry_biomass_potential_max_mg * Float.parseFloat(MTG[row][column_dry_biomass_potential_max_mg]);
+			growth_duration_dd				=	Float.parseFloat(MTG[row][column_growth_duration_dd]);
+			age_maximum_growth_dd			=	Float.parseFloat(MTG[row][column_age_maximum_growth_dd]);
+
+		}else{
+			length							=	normal(SA_factor_Internode_length_mean * Float.parseFloat(MTG[row][column_length]), Float.parseFloat(MTG[row][column_length_sd]));
+			internode_width_m				=	Float.parseFloat(MTG[row][column_width]);
+			
+			if(order == 0 && rank > 5){	
+				dry_biomass_mg = Math.pow((length * 1000) / (SPECIFIC_INTERNODE_LENGTH_THIN_FACTOR_1), 1 / SPECIFIC_INTERNODE_LENGTH_THIN_FACTOR_2);
+			} else if (order == 0 && rank <= 5){
+				dry_biomass_mg = Math.pow((length * 1000) / (SPECIFIC_INTERNODE_LENGTH_FACTOR_1), 1 / SPECIFIC_INTERNODE_LENGTH_FACTOR_2);
+
+			} else if (order == 1){
+				dry_biomass_mg = Math.pow((length * 1000) / (SPECIFIC_INTERNODE_LENGTH_THIN_FACTOR_1), 1 / SPECIFIC_INTERNODE_LENGTH_THIN_FACTOR_2);
+			}
+		}
+
+		area_m2							=	2 * Math.PI * 0.5*internode_width_m * length;
+		isFruit							=	false;
+		isRoot							=	false;
+		organ_type						=	2;	
+		
+				//optical properties
+		reflectivity_top_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,INTERNODE_SPD ));
+		transmissivity_top_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,INTERNODE_SPT));
+		topShader.setDiffuse(reflectivity_top_side);
+		topShader.setDiffuseTransparency(transmissivity_top_side);  
+				
+		reflectivity_bottom_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, INTERNODE_SPD));
+		transmissivity_bottom_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, INTERNODE_SPT));
+		bottomShader.setDiffuse(reflectivity_bottom_side);
+		bottomShader.setDiffuseTransparency(transmissivity_bottom_side);
+		
+		leafBothSideShader = new SideSwitchShader(topShader, topShader);
+		
+	}
+	
+	//2.2 calculate dimensions
+	void calcDimensions()
+	{
+		if(order == 0 && rank > 5){	
+			length				=	SA_factor_SPECIFIC_INTERNODE_LENGTH_MM_MG_MEAN*	(SPECIFIC_INTERNODE_LENGTH_THIN_FACTOR_1 * Math.pow(dry_biomass_structural_and_min_pool_mg,SPECIFIC_INTERNODE_LENGTH_THIN_FACTOR_2))/1000;		
+		} else if (order == 0){
+			length				=	SA_factor_SPECIFIC_INTERNODE_LENGTH_MM_MG_MEAN*	(SPECIFIC_INTERNODE_LENGTH_FACTOR_1 * Math.pow(dry_biomass_structural_and_min_pool_mg,SPECIFIC_INTERNODE_LENGTH_FACTOR_2))/1000;
+		} else if (order == 1){
+			length				=	SA_factor_SPECIFIC_INTERNODE_LENGTH_MM_MG_MEAN*	(SPECIFIC_INTERNODE_LENGTH_THIN_FACTOR_1 * Math.pow(dry_biomass_structural_and_min_pool_mg,SPECIFIC_INTERNODE_LENGTH_THIN_FACTOR_2))/1000;
+		}
+
+		internode_width_m	=	(SPECIFIC_INTERNODE_WIDTH_FACTOR_1 * Math.pow(dry_biomass_structural_and_min_pool_mg,SPECIFIC_INTERNODE_WIDTH_FACTOR_2))/1000;
+		area_m2				=	2 * Math.PI * 0.5*internode_width_m * length;
+	
+	}
+}	==>	Cylinder(length,internode_width_m/2).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,leafBothSideShader)));
+
+
+module Leaflet(float bladesArea, double rank, double order, double bendingAngleSegment,  SideSwitchShader shader) { } ==> 
+RL(90)
+if(rank ==0 && order == 0)(
+Scale(Math.sqrt(bladesArea/cotyledon_mesh.getSurfaceArea()))
+cotyledon_mesh.(setShader(new AlgorithmSwitchShader( GREEN, PLANT_RENDERING_SHADER , shader )))
+)else if(rank ==1&& order == 0)(
+Scale(Math.sqrt(bladesArea/firt_leaves_mesh.getSurfaceArea()))
+
+firt_leaves_mesh.(setShader(new AlgorithmSwitchShader( GREEN, PLANT_RENDERING_SHADER , shader )))
+)else(
+Scale(Math.sqrt(bladesArea/other_leaves_mesh.getSurfaceArea()))
+other_leaves_mesh.(setShader(new AlgorithmSwitchShader( GREEN, PLANT_RENDERING_SHADER , shader ))))
+;
+
+module Leaf extends GrowingOrgan { 
+//  1. Parameters specific to Leaf
+
+	int		bladesNr;	  	//length vector// number of blades pairs
+
+	float	wMaxPetiole;
+	
+	float counterClocKWiseOrientationPetiole;
+	float [] counterClocKWiseOrientationSegments;
+	float	anglePetiole;
+	float leafCurvature; 
+	float [] inclinationOnSegmentsPetiolules;
+
+	float [] segmentsLength;
+	float [] lengthPetiolules;
+	float sum_segments_petiolules_length;
+	
+	float	diameterPetiole;									// [ADD UNIT] width of petiole, petiolule  & segments
+	float	diameterPetiolule;
+	float	diameterSegment;
+
+	float  lengthPetiole;
+	float [] lengthblades;
+	float [] area_m2blades;
+	float	area_m2bladesTotal;
+	float	totalLengthLeaf ; 							// [ADD UNIT] actual leaf length (petiole + segm 2 + segm 3 + segm 4 + segm 5 +terminal blades)
+
+	float	segment_specific_length;
+	float	SLA;
+	
+	float dry_biomass_petiole_mg;
+	float dry_biomass_structural_petiole_mg;
+	
+	float [] dry_biomass_segments_mg;							// length of a petiole (m)
+	float [] dry_biomass_structural_segments_mg;							// length of a petiole (m)
+	
+	float [] dry_biomass_petiolules_mg;							// [ADD UNIT]length of a petiolule1 (m)
+	float [] dry_biomass_structural_petiolules_mg;							// [ADD UNIT]length of a petiolule1 (m)
+	
+	float [] dry_biomass_blades_mg;							// [ADD UNIT]length of a blades1 (m)
+	float [] dry_biomass_structural_blades_mg;							// [ADD UNIT]length of a blades1 (m)
+	
+	float	total_blades_dry_biomass_mg;
+	float	total_blades_dry_biomass_structural_mg;
+	
+	float 	fractionPartitioningPetiole;
+	float [] fractionPartitioningSegments;
+	float [] fractionPartitioningPetiolules;
+	float [] fractionPartitioningblades;	
+	
+	float [] proportionSegments;
+	float [] proportionPetiolules;
+	float [] proportionblades;	
+
+	/////////////	
+	float segmentLengthTotal;
+	float generic_inclinationOnSegmentsPetiolules;
+	float genericLengthPetiolules;
+	float generic_counterClocKWiseOrientationSegments;
+			
+	float fraction_all_blades;
+	float fraction_petiolules;
+	float fraction_segments;
+	
+	float curvature; 
+
+	float d;
+	float segment_placeholder;
+	float leaf_length_no_petiole_no_blade;
+	
+	{	
+		dry_biomass_growth_respiration	=	GROWTH_RESPIRATION_LEAF;
+		maintenanceRespiration			=	MAINTENANCE_RESPIRATION_LEAF;
+	}
+	//Methods Specific to Leaf
+		// 2.1 leaf initiation
+	void initiate(Meristem f){
+		
+		pb 									= 	f[pb];
+		organ_type							=	4;
+		isFruit								=	f[isFruit];
+		isRoot								=	f[isRoot];
+		isStemTruss							=	f[isStemTruss];
+
+		doesPhotosynthesis					=	true;
+		
+		plant_number						= 	f.plant_number;
+		order								=	f.order; 
+		rank 								=	f.rank;
+
+		generic_inclinationOnSegmentsPetiolules = GENERIC_PETIOLULE_ANGLE_D_MEAN*SA_factor_GENERIC_PETIOLULE_ANGLE_D_MEAN ;
+			
+		anglePetiole		=	LEAF_ANGLE_MEAN*	SA_factor_LEAF_ANGLE_MEAN;
+			
+				
+		leafCurvature			=	LEAF_CURVATURE_MEAN*SA_factor_LEAF_CURVATURE;
+
+		//Size
+
+		//Volume and size proportions of organs
+		SLA	 								=	SA_factor_SLA_MM2_MG_MEAN*(	SLA_FACTOR_1*DENSITY+SLA_FACTOR_2)/1000000;// dividing by 1000000 makes mm@/mg into m2/mg
+		
+		//Photosynthesis Parametes					
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+		if(rank == 2 ||rank == 3 || (rank >0 && order ==1)){
+			segmentsLength							=	anyArray(0.000000000001); //TEMPORARY VALUES!
+			lengthPetiolules						=	anyArray(0.000000000001,0.000000000001,0.000000000001); //TEMPORARY VALUES!
+			
+			counterClocKWiseOrientationSegments	=	anyArray(0,0);
+			
+			area_m2blades							=	anyArray(0.000000000001,0.000000000001,0.000000000001);			
+			lengthblades							=	anyArray(0.000000000001,0.000000000001,0.000000000001);	
+		
+			fractionPartitioningPetiole				=	FRACTION_PETIOLE_MID_AND_LAST_LEAVES;
+			fractionPartitioningSegments			=	VectorMultiplication(PROPORTION_SEGMENTS_MID_LEAVES,	FRACTION_SEGMENT_MID_AND_LAST_LEAVES);
+			fractionPartitioningPetiolules			=	VectorMultiplication(PROPORTION_PETIOLULES_MID_LEAVES, FRACTION_PETIOLULE_MID_AND_LAST_LEAVES);
+			fractionPartitioningblades				=	VectorMultiplication(PROPORTION_blades_MID_LEAVES,	FRACTION_BLADES_MID_AND_LAST_LEAVES);
+					
+			dry_biomass_segments_mg					=	anyArray(0.000000000001);
+			dry_biomass_structural_segments_mg		=	anyArray(0.000000000001);
+
+			dry_biomass_petiolules_mg				=	anyArray(0.000000000001,0.000000000001,0.000000000001);
+			dry_biomass_structural_petiolules_mg	=	anyArray(0.000000000001,0.000000000001,0.000000000001);
+
+			dry_biomass_blades_mg					=	anyArray(0.000000000001,0.000000000001,0.000000000001);
+			dry_biomass_structural_blades_mg		=	anyArray(0.000000000001,0.000000000001,0.000000000001);
+			
+			bladesNr								=	dry_biomass_blades_mg.length;	  	//length vector
+			
+			leafCurvature							=	LEAF_CURVATURE_MEAN*SA_factor_LEAF_CURVATURE;
+			
+			inclinationOnSegmentsPetiolules			=	anyArray(generic_inclinationOnSegmentsPetiolules,generic_inclinationOnSegmentsPetiolules);
+		if(order == 0){
+			growth_duration_dd						=	GROWTH_DURATION_MID_AND_LAST_LEAVES_DD;
+			age_maximum_growth_dd					=	AGE_MAXIMUM_GROWTH_MID_AND_LAST_LEAVES_DD;
+			dry_biomass_potential_max_mg			=	DRY_BIOMASS_POTENTIAL_MAX_MID_AND_LAST_LEAVES_MG;	
+		
+		}else if(order == 1){
+			growth_duration_dd						=	GROWTH_DURATION_MID_AND_LAST_LEAVES_DD;
+			age_maximum_growth_dd					=	AGE_MAXIMUM_GROWTH_MID_AND_LAST_LEAVES_DD;
+			dry_biomass_potential_max_mg			=	DRY_BIOMASS_POTENTIAL_MAX_FIRST_LEAVES_MG;		
+		}
+			
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+		}else{
+			segmentsLength							=	anyArray(0.000000000001,0.000000000001); //TEMPORARY VALUES!
+			lengthPetiolules						=	anyArray(0.000000000001,0.000000000001,0.000000000001,0.000000000001); //TEMPORARY VALUES!
+			
+			counterClocKWiseOrientationSegments	=	anyArray(0,0,0);
+			
+			area_m2blades							=	anyArray(0.000000000001,0.000000000001,0.000000000001,0.000000000001);			
+			lengthblades							=	anyArray(0.000000000001,0.000000000001,0.000000000001,0.000000000001);	
+			
+			fractionPartitioningPetiole				=	FRACTION_PETIOLE_MID_AND_LAST_LEAVES ;
+			fractionPartitioningSegments			=	VectorMultiplication(PROPORTION_SEGMENTS_LAST_LEAVES,FRACTION_SEGMENT_MID_AND_LAST_LEAVES);
+			fractionPartitioningPetiolules			=	VectorMultiplication(PROPORTION_PETIOLULES_LAST_LEAVES, FRACTION_PETIOLULE_MID_AND_LAST_LEAVES);
+			fractionPartitioningblades				=	VectorMultiplication(PROPORTION_blades_LAST_LEAVES,	FRACTION_BLADES_MID_AND_LAST_LEAVES);
+	
+			dry_biomass_segments_mg					=	anyArray(0.000000000001,0.000000000001);
+			dry_biomass_structural_segments_mg		=	anyArray(0.000000000001,0.000000000001);
+
+			dry_biomass_petiolules_mg				=	anyArray(0.000000000001,0.000000000001,0.000000000001,0.000000000001);
+			dry_biomass_structural_petiolules_mg	=	anyArray(0.000000000001,0.000000000001,0.000000000001,0.000000000001);
+
+			dry_biomass_blades_mg					=	anyArray(0.000000000001,0.000000000001,0.000000000001,0.000000000001);
+			dry_biomass_structural_blades_mg		=	anyArray(0.000000000001,0.000000000001,0.000000000001,0.000000000001);
+			
+			bladesNr								=	dry_biomass_blades_mg.length;	  	//length vector
+
+			inclinationOnSegmentsPetiolules			=	anyArray(generic_inclinationOnSegmentsPetiolules,generic_inclinationOnSegmentsPetiolules,generic_inclinationOnSegmentsPetiolules);
+
+		if(order == 0 && rank <=8 && rank >3){
+			growth_duration_dd						=	GROWTH_DURATION_MID_AND_LAST_LEAVES_DD;
+			age_maximum_growth_dd					=	AGE_MAXIMUM_GROWTH_MID_AND_LAST_LEAVES_DD;
+			dry_biomass_potential_max_mg			=	DRY_BIOMASS_POTENTIAL_MAX_MID_AND_LAST_LEAVES_MG;		
+		}else if(order == 0 && rank ==8) {
+			growth_duration_dd						=	0;
+			age_maximum_growth_dd					=	0;
+			dry_biomass_potential_max_mg			=	0;		
+		}else if(order == 0 && rank >8) {
+			growth_duration_dd						=	0;
+			age_maximum_growth_dd					=	0;
+			dry_biomass_potential_max_mg			=	0;		
+		}			
+		
+	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	}
+		//optical properties
+		//Top of the leaf
+		reflectivity_top_side				=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,LEAF_TOP_SPD ));
+		transmissivity_top_side				=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,LEAF_TOP_SPT));
+		topShader.setDiffuse(reflectivity_top_side);
+		topShader.setDiffuseTransparency(transmissivity_top_side);    
+		
+		//Bottom of the leaf
+		reflectivity_bottom_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, LEAF_BOTTOM_SPD));
+		transmissivity_bottom_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, LEAF_BOTTOM_SPT));
+		bottomShader.setDiffuse(reflectivity_bottom_side);
+		bottomShader.setDiffuseTransparency(transmissivity_bottom_side);
+		
+		//Both sides
+		leafBothSideShader = new SideSwitchShader(topShader,bottomShader );
+		petioleBothSideShader = new SideSwitchShader(topShader, topShader);
+
+	}
+	
+	void mtgConstructor(int row, PlantBase pb){
+		//this.cb 						= 	cb;
+		this.pb 						= 	pb;
+		organ_type						=	4;
+		isFruit							=	false;
+		isRoot							=	false;
+		doesPhotosynthesis				=	true;
+		
+		plant_number					=	pb[plant_number];
+		order							=	Integer.parseInt( MTG[row][column_order]); 
+		rank							=	Integer.parseInt( MTG[row][column_rank]); 
+		
+		Asat_to_PAR_factor				=	Asat_to_PAR_factor; 
+		Asat_offset						=	Asat_offset;
+	
+		counterClocKWiseOrientationPetiole				=	normal(SA_factor_Leaf_counterClockWiseOrientation_mean * Float.parseFloat(MTG[row][column_counterClockWiseOrientation]), Float.parseFloat(MTG[row][column_counterClockWiseOrientation_sd]));	
+		generic_counterClocKWiseOrientationSegments		=	counterClocKWiseOrientationPetiole;
+		generic_inclinationOnSegmentsPetiolules			=	GENERIC_PETIOLULE_ANGLE_D_MEAN*SA_factor_GENERIC_PETIOLULE_ANGLE_D_MEAN;
+		leafCurvature									=	LEAF_CURVATURE_MEAN*SA_factor_LEAF_CURVATURE;
+
+		if(order == 0){
+			anglePetiole			=	normal(SA_factor_LEAF_ANGLE_MEAN*Float.parseFloat(MTG[row][column_inclination]), Float.parseFloat(MTG[row][column_inclination_sd]));
+		}else if(order == 1){
+			anglePetiole			=	normal( SA_factor_LEAF_ANGLE_MEAN*Float.parseFloat(MTG[row][column_inclination]), Float.parseFloat(MTG[row][column_inclination_sd]));
+		}	
+				
+		if (rank == 0&& order ==0){
+			proportionblades					=	anyArray(1);	
+				
+			fractionPartitioningPetiole			=	FRACTION_PETIOLE_COTYLEDONS;
+			fractionPartitioningblades			=	VectorMultiplication(proportionblades,	FRACTION_BLADES_COTYLEDONS);
+			
+		}else if(rank == 1 && order ==0){
+			proportionPetiolules				=	PROPORTION_PETIOLULES_FIRST_LEAVES;	
+			proportionblades					=	PROPORTION_blades_FIRST_LEAVES;			
+			
+			fractionPartitioningPetiole			=	FRACTION_PETIOLE_FIRST_LEAVES;
+			fractionPartitioningPetiolules		=	VectorMultiplication(PROPORTION_PETIOLULES_FIRST_LEAVES, FRACTION_PETIOLULE_FIRST_LEAVES);
+			fractionPartitioningblades			=	VectorMultiplication(PROPORTION_blades_FIRST_LEAVES,	FRACTION_BLADES_FIRST_LEAVES);
+			
+			inclinationOnSegmentsPetiolules		=	anyArray(generic_inclinationOnSegmentsPetiolules,generic_inclinationOnSegmentsPetiolules);
+
+		}else if(rank == 2 ||rank == 3 || ( order ==1)){
+
+			proportionSegments					=	PROPORTION_SEGMENTS_MID_LEAVES;	
+			proportionPetiolules				=	PROPORTION_PETIOLULES_MID_LEAVES;	
+			proportionblades					=	PROPORTION_blades_MID_LEAVES;
+			
+			fractionPartitioningPetiole			=	FRACTION_PETIOLE_MID_AND_LAST_LEAVES;
+			fractionPartitioningSegments		=	VectorMultiplication(PROPORTION_SEGMENTS_MID_LEAVES,	FRACTION_SEGMENT_MID_AND_LAST_LEAVES);
+			fractionPartitioningPetiolules		=	VectorMultiplication(PROPORTION_PETIOLULES_MID_LEAVES, FRACTION_PETIOLULE_MID_AND_LAST_LEAVES);
+			fractionPartitioningblades			=	VectorMultiplication(PROPORTION_blades_MID_LEAVES,	FRACTION_BLADES_MID_AND_LAST_LEAVES);
+
+			inclinationOnSegmentsPetiolules		=	anyArray(generic_inclinationOnSegmentsPetiolules,generic_inclinationOnSegmentsPetiolules, generic_inclinationOnSegmentsPetiolules);
+			counterClocKWiseOrientationSegments	=	anyArray(generic_counterClocKWiseOrientationSegments);
+
+		}else{
+			proportionSegments					=	PROPORTION_SEGMENTS_LAST_LEAVES;	
+			proportionPetiolules				=	PROPORTION_PETIOLULES_LAST_LEAVES;	
+			proportionblades					=	PROPORTION_blades_LAST_LEAVES;
+
+			fractionPartitioningPetiole			=	FRACTION_PETIOLE_MID_AND_LAST_LEAVES ;
+			fractionPartitioningSegments		=	VectorMultiplication(PROPORTION_SEGMENTS_LAST_LEAVES,FRACTION_SEGMENT_MID_AND_LAST_LEAVES);
+			fractionPartitioningPetiolules		=	VectorMultiplication(PROPORTION_PETIOLULES_LAST_LEAVES, FRACTION_PETIOLULE_MID_AND_LAST_LEAVES);
+			fractionPartitioningblades			=	VectorMultiplication(PROPORTION_blades_LAST_LEAVES,	FRACTION_BLADES_MID_AND_LAST_LEAVES);			
+			
+			inclinationOnSegmentsPetiolules		=	anyArray(generic_inclinationOnSegmentsPetiolules,generic_inclinationOnSegmentsPetiolules,generic_inclinationOnSegmentsPetiolules,generic_inclinationOnSegmentsPetiolules);		
+			counterClocKWiseOrientationSegments	=	anyArray(generic_counterClocKWiseOrientationSegments,generic_counterClocKWiseOrientationSegments);
+		}		
+
+		if(isStatic==false){
+			dry_biomass_potential_max_mg		=	SA_factor_Leaf_dry_biomass_potential_max_mg *Float.parseFloat(MTG[row][column_dry_biomass_potential_max_mg]);	
+			
+			dry_biomass_mg						=	Float.parseFloat(MTG[row][column_dry_biomass_mg]);		
+			dry_biomass_structural_and_min_pool_mg			=	0.90*dry_biomass_mg; //assumption that at normality 10% is buffer
+			dry_biomass_buffer_mg				=	0.10*dry_biomass_mg;
+			dry_biomass_buffer_usable_mg		=	dry_biomass_buffer_mg ;					
+
+			dry_biomass_petiole_mg				= 	fractionPartitioningPetiole*dry_biomass_mg;	
+			dry_biomass_structural_petiole_mg	= 	fractionPartitioningPetiole*dry_biomass_structural_and_min_pool_mg;	
+
+			dry_biomass_blades_mg				= 	VectorMultiplication(fractionPartitioningblades,dry_biomass_mg);
+			dry_biomass_structural_blades_mg	= 	VectorMultiplication(fractionPartitioningblades,dry_biomass_structural_and_min_pool_mg);
+
+			//Volume and size proportions of organs
+			SLA	 								=	SA_factor_SLA_MM2_MG_MEAN*(	SLA_FACTOR_1*DENSITY+SLA_FACTOR_2)/1000000;
+
+			lengthPetiole						=	SA_factor_segmenth_specific_length_mm_mg*(SPECIFIC_PETIOLE_LENGTH_FACTOR_1 * Math.pow(dry_biomass_structural_petiole_mg,SPECIFIC_PETIOLE_LENGTH_FACTOR_2))/1000;
+			
+			//Growth parameters
+			growth_duration_dd					=	Float.parseFloat(MTG[row][column_growth_duration_dd]);
+			age_maximum_growth_dd				=	Float.parseFloat(MTG[row][column_age_maximum_growth_dd]);
+			
+			//
+			age_in_degree_days_dd				=	(int) Float.parseFloat(MTG[row][column_degreeDays]);
+		
+			bladesNr							=	dry_biomass_blades_mg.length;
+	
+			//blades & Petioles	 & Petioloules
+			area_m2blades						=	VectorMultiplication(dry_biomass_structural_blades_mg,SLA); 		
+			area_m2bladesTotal 					=	sumArray(area_m2blades);
+			
+			diameterPetiole						=	(SPECIFIC_PETIOLE_WIDTH_FACTOR_1 * Math.pow(dry_biomass_structural_petiole_mg,SPECIFIC_PETIOLE_WIDTH_FACTOR_2))/1000;
+
+			if(bladesNr>1){			
+			
+				dry_biomass_petiolules_mg				=	VectorMultiplication(fractionPartitioningPetiolules,dry_biomass_mg);	
+				dry_biomass_structural_petiolules_mg	=	VectorMultiplication(fractionPartitioningPetiolules,dry_biomass_structural_and_min_pool_mg);	
+
+				lengthPetiolules						=	anyArray( new double[proportionPetiolules.length]);
+								for(int j = 0; j < fractionPartitioningPetiolules.length; j++) {		
+					lengthPetiolules[j]	=	SA_factor_segmenth_specific_length_mm_mg*(SPECIFIC_PETIOLE_LENGTH_FACTOR_1 * Math.pow(dry_biomass_structural_petiolules_mg[j]/2,SPECIFIC_PETIOLE_LENGTH_FACTOR_2))/1000;
+				}
+				
+				diameterPetiolule						=	(SPECIFIC_PETIOLE_WIDTH_FACTOR_1 * Math.pow(dry_biomass_structural_petiolules_mg[dry_biomass_structural_petiolules_mg.length-1],SPECIFIC_PETIOLE_WIDTH_FACTOR_2))/1000;
+				if(bladesNr>2){
+					dry_biomass_segments_mg				=	VectorMultiplication(fractionPartitioningSegments,dry_biomass_mg); 		
+					dry_biomass_structural_segments_mg	=	VectorMultiplication(fractionPartitioningSegments,dry_biomass_structural_and_min_pool_mg); 	
+					segmentsLength						=	anyArray( new double[proportionSegments.length]);
+						for(int j = 0; j < fractionPartitioningSegments.length; j++) {		
+							segmentsLength[j]	=	SA_factor_segmenth_specific_length_mm_mg*(17.1420 * Math.pow(dry_biomass_structural_segments_mg[j],0.29607))/1000;
+						}
+					sum_segments_petiolules_length 	=	sumArray(segmentsLength)+sumArray(lengthPetiolules);
+					area_m2							=	area_m2bladesTotal+  3.14159265359*(diameterPetiole* lengthPetiole + sumArray(lengthPetiolules)*diameterPetiolule +sumArray(segmentsLength)*diameterSegment); //this is the area_m2 including petiole, segmentts and petiolules. i divide by 2 because I consider just one sided area_m2	
+
+					diameterSegment							= (SPECIFIC_PETIOLE_WIDTH_FACTOR_1 * Math.pow(dry_biomass_structural_segments_mg[0],SPECIFIC_PETIOLE_WIDTH_FACTOR_2))/1000;
+				}else{
+					sum_segments_petiolules_length 	=	sumArray(lengthPetiolules);
+					area_m2							=	area_m2bladesTotal+  3.14159265359*(diameterPetiole* lengthPetiole + sumArray(lengthPetiolules)*diameterPetiolule)/2; 
+				}
+				
+			}else{
+				dry_biomass_segments_mg					= 	anyArray(0);		
+				dry_biomass_structural_segments_mg		= 	anyArray(0);		
+				dry_biomass_petiolules_mg				= 	anyArray(0);
+				dry_biomass_structural_petiolules_mg	= 	anyArray(0);
+				
+				fractionPartitioningPetiolules			=	anyArray(0);
+				fractionPartitioningSegments			=	anyArray(0);
+				segmentsLength							=	anyArray(0);
+				lengthPetiolules						=	anyArray(0);
+
+				sum_segments_petiolules_length 			=	sumArray(segmentsLength)+sumArray(lengthPetiolules);
+				area_m2									=	area_m2bladesTotal+ 3.14159265359*(diameterPetiole*lengthPetiole)/2; //this is the area_m2 including petiole, segmentts and petiolules. i divide by 2 because I consider just one sided area_m2	
+
+			}
+		
+
+		}else{	
+						
+			///SECTION TO IMPORT MTG WITH JUST SIZE VALUES		
+
+			lengthPetiole						=	normal(SA_factor_petiole_length *Float.parseFloat(MTG[row][column_length]),Float.parseFloat(MTG[row][column_length_sd]));
+			diameterPetiole						=	Float.parseFloat(MTG[row][column_width]);
+			diameterPetiolule					=	diameterPetiole;
+			diameterSegment						=	diameterPetiole;
+			genericLengthPetiolules				=	SA_factor_genericLengthPetiolules *0.01;
+
+			bladesNr							=	proportionblades.length;		
+			
+			if(bladesNr>2){
+				float aiuto_1 = Float.parseFloat(MTG[row][30]) * 1000;
+				float aiuto_2 = Math.pow(aiuto_1,0.29607);
+				float aiuto_3 =  17.1420 *aiuto_2/1000; 
+				segmentLengthTotal =	SA_factor_segmentLengthTotal *(aiuto_3-genericLengthPetiolules);// genericLengthPetiolules is removed becasue the empirical relation between length and dw of rachis was done on rachis with petiolules, instead here whe are talkching of the lenth of the rachis without peiolules.
+			}                                                                                                    
+			
+			area_m2bladesTotal					=	SA_factor_area_blades *Float.parseFloat(MTG[row][column_dry_biomass_mg]);		// column_dry_biomass_mg correspond to area when STATIC is used
+			area_m2blades						=	VectorMultiplication(proportionblades,area_m2bladesTotal);	
+			
+			if (rank == 0&& order ==0){
+				proportionblades					=	anyArray(1);
+				area_m2								=	area_m2bladesTotal+  3.14159265359*(diameterPetiole* lengthPetiole)/2; //this is the area_m2 including petiole, segmentts and petiolules. i divide by 2 because I consider just one sided area_m2
+
+			}else if(rank == 1 && order ==0){
+
+				lengthPetiolules					=	anyArray(genericLengthPetiolules,genericLengthPetiolules);
+				inclinationOnSegmentsPetiolules		=	anyArray(generic_inclinationOnSegmentsPetiolules,generic_inclinationOnSegmentsPetiolules);
+				area_m2								=	area_m2bladesTotal+  3.14159265359*(diameterPetiole* lengthPetiole + sumArray(lengthPetiolules)*diameterPetiolule )/2; //this is the area_m2 including petiole, segmentts and petiolules. i divide by 2 because I consider just one sided area_m2
+	
+			}else if(rank == 2 ||rank == 3 || (rank >=0 && order ==1)){	
+	
+				counterClocKWiseOrientationSegments	=	anyArray(generic_counterClocKWiseOrientationSegments);
+				lengthPetiolules					=	anyArray(genericLengthPetiolules,genericLengthPetiolules,genericLengthPetiolules);
+				inclinationOnSegmentsPetiolules		=	anyArray(generic_inclinationOnSegmentsPetiolules,generic_inclinationOnSegmentsPetiolules,generic_inclinationOnSegmentsPetiolules);
+				area_m2								=	area_m2bladesTotal+  3.14159265359*(diameterPetiole* lengthPetiole + sumArray(lengthPetiolules)*diameterPetiolule +segmentLengthTotal*diameterSegment)/2; //this is the area_m2 including petiole, segmentts and petiolules. i divide by 2 because I consider just one sided area_m2
+
+
+			}else{					
+				counterClocKWiseOrientationSegments	=	anyArray(generic_counterClocKWiseOrientationSegments,generic_counterClocKWiseOrientationSegments);
+				lengthPetiolules					=	anyArray(genericLengthPetiolules,genericLengthPetiolules,genericLengthPetiolules,genericLengthPetiolules);
+				inclinationOnSegmentsPetiolules		=	anyArray(generic_inclinationOnSegmentsPetiolules,generic_inclinationOnSegmentsPetiolules,generic_inclinationOnSegmentsPetiolules,generic_inclinationOnSegmentsPetiolules);
+				area_m2								=	area_m2bladesTotal+  3.14159265359*(diameterPetiole* lengthPetiole + sumArray(lengthPetiolules)*diameterPetiolule +segmentLengthTotal*diameterSegment)/2; //this is the area_m2 including petiole, segmentts and petiolules. i divide by 2 because I consider just one sided area_m2
+
+			}
+			
+			if(bladesNr>2){
+				segmentsLength		=	VectorMultiplication(proportionSegments,segmentLengthTotal);
+			}
+
+			float temporary_biomass_petioles;
+			
+if (lengthPetiole > 70) { // this correction is done because the relation between petiole and biomass is good just between 20 to 70 mm ca. After that the number obtained don't mak emuch sense
+    temporary_biomass_petioles	=	1000*Math.pow((70 ) / SPECIFIC_PETIOLE_LENGTH_FACTOR_1, 1 / SPECIFIC_PETIOLE_LENGTH_FACTOR_2);
+} else {
+    temporary_biomass_petioles = 1000*Math.pow((lengthPetiole ) / SPECIFIC_PETIOLE_LENGTH_FACTOR_1, 1 / SPECIFIC_PETIOLE_LENGTH_FACTOR_2);
+}
+
+
+		float temporary_biomass_petiolules_and_rachis = 1000*Float.parseFloat(MTG[row][30]); // this because in the mtg satic at the moment, column 30 is the dw of rachis + petiolules
+		float temporary_biomass_blades = ((area_m2*1000000)/(SA_factor_SLA_MM2_MG_MEAN*SLA_MM_MG));
+		
+		dry_biomass_mg	=	temporary_biomass_petiolules_and_rachis 
+								+	temporary_biomass_petioles ///petiolE
+								+	temporary_biomass_blades; //blades
+
+		}
+				
+		//optical properties
+		//Top of the leaf
+		reflectivity_top_side				=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,LEAF_TOP_SPD ));
+		transmissivity_top_side				=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,LEAF_TOP_SPT));
+		topShader.setDiffuse(reflectivity_top_side);
+		topShader.setDiffuseTransparency(transmissivity_top_side);    
+		
+		//Bottom of the leaf
+		reflectivity_bottom_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, LEAF_BOTTOM_SPD));
+		transmissivity_bottom_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, LEAF_BOTTOM_SPT));
+		bottomShader.setDiffuse(reflectivity_bottom_side);
+		bottomShader.setDiffuseTransparency(transmissivity_bottom_side);
+		
+		//Both sides
+		leafBothSideShader = new SideSwitchShader(topShader,bottomShader );
+		petioleBothSideShader = new SideSwitchShader(topShader, topShader);
+	}
+	
+	void calcDimensions(){
+		
+		//petiole
+		dry_biomass_petiole_mg					=	fractionPartitioningPetiole*dry_biomass_mg;
+		dry_biomass_structural_petiole_mg		=	fractionPartitioningPetiole*dry_biomass_structural_and_min_pool_mg; 
+		lengthPetiole							=	SA_factor_segmenth_specific_length_mm_mg*	(SPECIFIC_PETIOLE_LENGTH_FACTOR_1 * Math.pow(dry_biomass_structural_petiole_mg,SPECIFIC_PETIOLE_LENGTH_FACTOR_2))/1000;
+		diameterPetiole							=	(SPECIFIC_PETIOLE_WIDTH_FACTOR_1 * Math.pow(dry_biomass_structural_petiole_mg,SPECIFIC_PETIOLE_WIDTH_FACTOR_2))/1000;
+
+		//blades 		
+		for(int j = 0; j < bladesNr; j++) {		
+			dry_biomass_blades_mg[j]				=	fractionPartitioningblades[j]*dry_biomass_mg ;
+			dry_biomass_structural_blades_mg[j]	=	fractionPartitioningblades[j]*dry_biomass_structural_and_min_pool_mg ;
+			area_m2blades[j]						=	dry_biomass_structural_blades_mg[j] * SLA;
+		}
+		
+		area_m2bladesTotal						=	sumArray(area_m2blades);
+		total_blades_dry_biomass_mg				=	sumArray(dry_biomass_blades_mg);
+		total_blades_dry_biomass_structural_mg	=	sumArray(dry_biomass_structural_blades_mg);
+		
+		//Segments & Petioloules
+
+		if(bladesNr>1){
+			
+			for(int j = 0; j < bladesNr-1; j++) {
+				dry_biomass_petiolules_mg[j]			=	fractionPartitioningPetiolules[j]*dry_biomass_mg;
+				dry_biomass_structural_petiolules_mg[j]	=	fractionPartitioningPetiolules[j]*dry_biomass_structural_and_min_pool_mg;
+				lengthPetiolules[j]						=	SA_factor_segmenth_specific_length_mm_mg*(SPECIFIC_PETIOLE_LENGTH_FACTOR_1 * Math.pow(dry_biomass_structural_petiolules_mg[j]/2,SPECIFIC_PETIOLE_LENGTH_FACTOR_2))/1000;//normal(SPECIFIC_INTERNODE_LENGTH_MM_MG_MEAN, SPECIFIC_INTERNODE_LENGTH_MM_MG_STD);
+			}		
+			diameterPetiolule						= ( SPECIFIC_PETIOLE_WIDTH_FACTOR_1* Math.pow(dry_biomass_structural_petiolules_mg[0]/2,SPECIFIC_PETIOLE_WIDTH_FACTOR_2))/1000;
+
+			if(bladesNr>2){
+	
+				for(int j = 0; j < bladesNr-2; j++) {
+	
+					dry_biomass_segments_mg[j]				=	fractionPartitioningSegments[j]*dry_biomass_mg;
+					dry_biomass_structural_segments_mg[j]	=	fractionPartitioningSegments[j]*dry_biomass_structural_and_min_pool_mg;
+					segmentsLength[j]						=	SA_factor_segmenth_specific_length_mm_mg*	(17.14202 * Math.pow(dry_biomass_structural_segments_mg[j],0.29607))/1000;//normal(SPECIFIC_INTERNODE_LENGTH_MM_MG_MEAN, SPECIFIC_INTERNODE_LENGTH_MM_MG_STD);
+				}			
+				sum_segments_petiolules_length		=	sumArray(segmentsLength)+sumArray(lengthPetiolules);	
+				leaf_length_no_petiole_no_blade		=	sumArray(segmentsLength)+lengthPetiolules[0];
+				diameterSegment						=	SPECIFIC_PETIOLE_WIDTH_FACTOR_1 * Math.pow(dry_biomass_structural_segments_mg[0],SPECIFIC_PETIOLE_WIDTH_FACTOR_2)/1000;
+				area_m2								=	area_m2bladesTotal+  3.14159265359*(diameterPetiole* lengthPetiole + sumArray(lengthPetiolules)*diameterPetiolule +sumArray(segmentsLength)*diameterSegment)/2; //this is the area_m2 including petiole, segmentts and petiolules. i divide by 2 because I consider just one sided area_m2
+
+			}else{
+				sum_segments_petiolules_length 		=	sumArray(lengthPetiolules);
+				leaf_length_no_petiole_no_blade		=	lengthPetiolules[1];
+				area_m2								=	area_m2bladesTotal+ 3.14159265359*(diameterPetiole* lengthPetiole + sumArray(lengthPetiolules)*diameterPetiolule)/2; //this is the area_m2 including petiole, segmentts and petiolules. i divide by 2 because I consider just one sided area_m2
+			}		
+		}else{
+			dry_biomass_petiolules_mg				=	anyArray(0);
+			dry_biomass_structural_petiolules_mg	=	anyArray(0);
+			dry_biomass_segments_mg					=	anyArray(0);
+			dry_biomass_structural_segments_mg		=	anyArray(0);
+			
+			segmentsLength							=	anyArray(0);
+			lengthPetiolules						=	anyArray(0);			
+			
+			sum_segments_petiolules_length 			=	sumArray(segmentsLength)+sumArray(lengthPetiolules);	
+			leaf_length_no_petiole_no_blade			=	sumArray(segmentsLength)+lengthPetiolules[0];
+			
+			area_m2									=	area_m2bladesTotal+  3.14159265359*(diameterPetiole* lengthPetiole)/2; //this is the area_m2 including petiole, segmentts and petiolules. i divide by 2 because I consider just one sided area_m2
+		}
+		
+	}
+} ==> [
+RH(counterClocKWiseOrientationPetiole)
+RL(anglePetiole)
+Cylinder(lengthPetiole,diameterPetiole/2).(setShader(new AlgorithmSwitchShader( GREEN, PLANT_RENDERING_SHADER , petioleBothSideShader )))
+
+if(bladesNr>1)(
+	RH(-counterClocKWiseOrientationPetiole)
+)
+
+for (int q:0:bladesNr-2) (		
+	RH(counterClocKWiseOrientationPetiole)
+	{float p;}
+	
+	[
+		RU(90)
+		RL(90+inclinationOnSegmentsPetiolules[q])  
+		RH(180)
+		Cylinder(lengthPetiolules[q], diameterPetiolule/2).(setShader(new AlgorithmSwitchShader( GREEN, PLANT_RENDERING_SHADER , petioleBothSideShader )))  	
+		Leaflet(area_m2blades[q]/2,rank,order, 0,leafBothSideShader)
+	]
+	
+	[
+		RU(90)
+		RL(90-inclinationOnSegmentsPetiolules[q])  
+		Cylinder(lengthPetiolules[q], diameterPetiolule/2).(setShader(new AlgorithmSwitchShader( GREEN, PLANT_RENDERING_SHADER , petioleBothSideShader )))  	
+		Leaflet(area_m2blades[q]/2,rank,order, 0,leafBothSideShader)
+	]
+	
+	if (q==bladesNr-2 ){
+	curvature = 90-inclinationOnSegmentsPetiolules[q];
+	d = diameterPetiolule/2; 
+	segment_placeholder= lengthPetiolules[q];} 
+	else if (bladesNr>2){  
+	curvature = leafCurvature-90;
+	d = diameterSegment/2;
+	segment_placeholder =segmentsLength[q];
+	}else{  
+	curvature = leafCurvature-90 ;
+	d = diameterSegment/2;
+	segment_placeholder =segmentsLength[q];
+	}
+	
+	RL(curvature)
+	
+	Cylinder(segment_placeholder,d).(setShader(new AlgorithmSwitchShader( GREEN, PLANT_RENDERING_SHADER , petioleBothSideShader )))
+	RH(-counterClocKWiseOrientationPetiole)
+		)
+if(bladesNr>1)(
+	RH(counterClocKWiseOrientationPetiole) 		
+)
+Leaflet(area_m2blades[bladesNr-1],
+rank, order, 0, 
+leafBothSideShader)
+];
+
+module Truss extends GrowingOrgan {
+	//  1. Parameters specific of Truss
+
+	// 2. Methods specific of Truss	
+	
+	// 2.1 Truss initiation
+	void initiate(Meristem a){
+		
+		pb 							= 	a[pb];
+		plant_number				= 	a[plant_number];
+		organ_type					=	9;
+		isFruit						=	false;
+		isRoot						=	a[isRoot];
+		isStemTruss					=	true;
+		doesPhotosynthesis			=	false;
+		
+		dry_biomass_growth_respiration	=	GROWTH_RESPIRATION_STEM;
+		maintenanceRespiration			=	MAINTENANCE_RESPIRATION_STEM;
+
+		dry_biomass_potential_max_mg	=	DRY_BIOMASS_POTENTIAL_MAX_TRUSS_MG;
+		growth_duration_dd				=	GROWTH_DURATION_TRUSS_DD;
+		age_maximum_growth_dd			=	AGE_MAXIMUM_GROWTH_TRUSS_DD;
+		
+		//Top of the leaf
+		reflectivity_top_side		=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,LEAF_TOP_SPD ));
+		transmissivity_top_side		=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,LEAF_TOP_SPT));
+		topShader.setDiffuse(reflectivity_top_side);
+		topShader.setDiffuseTransparency(transmissivity_top_side);    
+		//Bottom of the leaf
+		reflectivity_bottom_side	=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, LEAF_BOTTOM_SPD));
+		transmissivity_bottom_side	=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, LEAF_BOTTOM_SPT));
+		bottomShader.setDiffuse(reflectivity_bottom_side);
+		bottomShader.setDiffuseTransparency(transmissivity_bottom_side);
+		//Both sides
+		leafBothSideShader = new SideSwitchShader(topShader, topShader);
+	}
+}==>Sphere(0.000000000000001).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,leafBothSideShader)));
+
+module Fruits extends GrowingOrgan { 
+
+
+	boolean	fruitPairing;
+	float	PETIOLELENGTH;
+	int		fruitNr;	  				//length vector
+	float	INTERNODETRUSSLENGTH;
+	float	[]	fruitRadius;
+	float	[]	degreeDaysStorage;
+	float	[]	degreeDaysStoragePreviousDay;
+	
+	float	[]	sink_strength_per_day_mgStorage	;
+	float	[]	sink_strength_per_day_just_for_growth_and_not_for_respiration_growth_mgStorage	;
+	float	[]	fruit_dry_biomass_mg;
+	String		string_array_fruit_dry_biomass_mg;
+	String		string_array_fruit_age_mg;
+	
+	float	[]	fruit_fresh_biomass_mg;
+	float	[]	fruit_dry_biomass_harvested_mg;
+	float	[]	fruit_fresh_biomass_harvested_mg;
+	float	[]	fruit_dry_biomass_structural_and_min_pool_mg;
+	float	[]	fruit_dry_biomass_buffer_usable_mg;
+	float	[]	fruit_dry_biomass_structural_and_min_pool_harvested_mg;	
+	float	[]	fruit_dry_biomass_buffer_harvested_mg;
+	
+	
+	float 	fresh_biomass_mg;
+	float buffer_harvested_mg;
+	float dry_biomass_structural_and_min_pool_harvested_mg;
+	
+	float	[]	surface_area_green_tomatoes;
+	float	[]	area_internode_fruit;
+	float	[]	area_petiole_fruit;
+	float		internodeTrussAngle;
+	float		internodeTrussdiameter;
+	float		angleAmongSubsequentFruits;
+	float		Ripening_dd;
+	float		DegreeDaysCalculator;
+
+	float		dry_biomass_potential_max_mgFruit ;
+	
+	float		fruit_relative_dry_biomass_growth_mg;
+	
+	float		delay_flower_appearance;
+	
+	ChannelSPD fruitRipenSPD;
+	ChannelSPD fruitRipenSPT;
+	ChannelSPD fruitRipenSPD_for_bug;
+	ChannelSPD fruitRipenSPT_for_bug;
+	Phong fruitRipenShader;
+	SideSwitchShader fruitRipenBothSideShader;			// distinctive upper (adaxial) and lower (abaxial) surfaces
+
+	ChannelSPD fruitUnripenSPD ;
+	ChannelSPD fruitUnripenSPT;	
+	ChannelSPD fruitUnripenSPDfor_bug;
+	ChannelSPD fruitUnripenSPTfor_bug;
+	Phong fruitUnripenShader;
+	SideSwitchShader fruitUnripenBothSideShader;			// distinctive upper (adaxial) and lower (abaxial) surfaces
+
+	// 2.1 initiation
+
+	void initiate(Meristem f){
+
+		//ID
+		pb 							= 	f[pb];
+		isFruit						=	f[isFruit];
+		isRoot						=	f[isRoot];
+		isStemTruss					=	f[isStemTruss];
+		organ_type					=	5;
+		plant_number				= 	f.plant_number;
+		rank 						=	f.rank;
+		order						=	f.order; 
+		doesPhotosynthesis			=	true;		
+		isRoot 						=	false;
+		
+		PETIOLELENGTH						=	0.003;
+		INTERNODETRUSSLENGTH				=	0.012;
+
+		fruitNr								=	Math.round(FRUITS_PER_TRUSS * SA_factor_fruitNr);
+		fruitRadius							=	new float [fruitNr] ;
+		degreeDaysStorage					=	new float [fruitNr] ;
+		degreeDaysStoragePreviousDay		=	new float [fruitNr] ;
+	
+		sink_strength_per_day_mgStorage		=	new float [fruitNr] ;
+		sink_strength_per_day_just_for_growth_and_not_for_respiration_growth_mgStorage	=	new float [fruitNr] ;
+
+		fruit_dry_biomass_mg							=	new float [fruitNr] ;
+		
+		
+		fruit_fresh_biomass_mg							=	new float [fruitNr] ;
+		fruit_dry_biomass_structural_and_min_pool_mg	=	new float [fruitNr] ;
+		fruit_dry_biomass_buffer_usable_mg				=	new float [fruitNr] ;
+		fruit_dry_biomass_harvested_mg						=	new float [fruitNr] ;
+		fruit_fresh_biomass_harvested_mg						=	new float [fruitNr] ;
+		fruit_dry_biomass_structural_and_min_pool_harvested_mg						=	new float [fruitNr] ;
+		fruit_dry_biomass_buffer_harvested_mg						=	new float [fruitNr] ;
+
+
+		
+		surface_area_green_tomatoes						=	new float [fruitNr] ;
+		area_internode_fruit							=	new float [fruitNr] ;
+		area_petiole_fruit								=	new float [fruitNr] ;
+		//AGE AND DEVELOPMENT
+		Ripening_dd							=	RIPENING_DD;	//educated guess from images
+		
+		delay_flower_appearance				=	DELAY_FLOWER_APPEARANCE	;		//educated guess from images
+		degreeDaysStorage					=	new float [fruitNr] ;
+		degreeDaysStoragePreviousDay		=	new float [fruitNr] ;
+
+		//GEOMETRY
+		length								=	0;	// this is set to 0 because VisibleOrgan extends M, and M comes with a default length>0.
+		internodeTrussAngle					=	9;
+		internodeTrussdiameter				=	0.0015;
+		angleAmongSubsequentFruits			=	0;
+		
+		fruitPairing						=	false;
+
+		//growth of a single tomato
+		dry_biomass_growth_respiration	=	GROWTH_RESPIRATION_FRUIT;
+		maintenanceRespiration			=	MAINTENANCE_RESPIRATION_FRUIT;
+		dry_biomass_potential_max_mg	=	normal(DRY_BIOMASS_POTENTIAL_MAX_FRUIY_MG_MEAN, 0) ;
+
+		growth_duration_dd				=	normal(GROWTH_DURATION_FRUIT_DD_MEAN, 0);
+		age_maximum_growth_dd			=	normal(AGE_MAXIMUM_GROWTH_FRUIT_DD_MEAN, 0);
+
+		sink_strength_max_dd			=	dry_biomass_potential_max_mg*((2*growth_duration_dd-age_maximum_growth_dd)/(growth_duration_dd*(growth_duration_dd-age_maximum_growth_dd)))*(age_maximum_growth_dd/growth_duration_dd)**(age_maximum_growth_dd/(growth_duration_dd-age_maximum_growth_dd));
+			
+		//optical properties
+		//Top of the leaf
+		reflectivity_top_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,INTERNODE_SPD ));
+		transmissivity_top_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,INTERNODE_SPT));
+		topShader.setDiffuse(reflectivity_top_side);
+		topShader.setDiffuseTransparency(transmissivity_top_side);    
+				
+		reflectivity_bottom_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, INTERNODE_SPD));
+		transmissivity_bottom_side			=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, INTERNODE_SPT));
+		bottomShader.setDiffuse(reflectivity_bottom_side);
+		bottomShader.setDiffuseTransparency(transmissivity_bottom_side);
+		
+		leafBothSideShader = new SideSwitchShader(topShader, topShader);
+		
+		//Ripen fruit
+		ChannelSPD fruitRipenSPD 		=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, FRUIT_RIPEN_SPD));
+		ChannelSPD fruitRipenSPT 		=	new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,FRUIT_RIPEN_SPT ));
+		Phong fruitRipenShader 			=	new Phong();
+		Phong fruitRipenShader_for_bug 	=	new Phong();
+		
+		fruitRipenShader.setDiffuse(fruitRipenSPD);
+		fruitRipenShader.setDiffuseTransparency(fruitRipenSPT);
+		fruitRipenShader_for_bug.setDiffuse(fruitRipenSPD);
+		fruitRipenShader_for_bug.setDiffuseTransparency(fruitRipenSPT);
+	
+		fruitRipenBothSideShader = new SideSwitchShader(fruitRipenShader, fruitRipenShader);
+
+		//Unripen fruit
+		 fruitUnripenSPD = new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,FRUIT_UNRIPEN_SPD));
+		 fruitUnripenSPT = new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS,FRUIT_UNRIPEN_SPT ));
+		Phong fruitUnripenShader = new Phong();
+		Phong fruitUnripenShader_for_bug = new Phong();
+		
+		fruitUnripenShader.setDiffuse(fruitUnripenSPD);
+		fruitUnripenShader.setDiffuseTransparency(fruitUnripenSPT);
+		fruitUnripenShader_for_bug.setDiffuse(fruitUnripenSPD);
+		fruitUnripenShader_for_bug.setDiffuseTransparency(fruitUnripenSPT);
+		
+		fruitUnripenBothSideShader		=	new SideSwitchShader(fruitUnripenShader, fruitUnripenShader);	
+	}
+	
+	void calcNrFruits(){
+		
+		DegreeDaysCalculator	+=  time_step_in_degree_days_dd;		
+		
+		if (DegreeDaysCalculator >= delay_flower_appearance){
+			for(int i = 0; i < degreeDaysStorage.length; i++) {
+				if(degreeDaysStorage[i]==0){
+					degreeDaysStorage[i]= 0.000000000001;
+					degreeDaysStoragePreviousDay[i]= 0.000000000001;
+					break;
+				}	
+			}
+		}
+			
+		if (DegreeDaysCalculator >= delay_flower_appearance){DegreeDaysCalculator -= delay_flower_appearance;}
+
+		for(int i = 0; i < degreeDaysStorage.length; i++) {
+			if( degreeDaysStorage[i] != 0 && i !=0){
+				degreeDaysStoragePreviousDay[i] = degreeDaysStorage[i];
+				degreeDaysStorage[i] += time_step_in_degree_days_dd;
+			 }else if(i ==0){
+			 	 degreeDaysStoragePreviousDay[i] = degreeDaysStorage[i];
+			 	 degreeDaysStorage[i] += time_step_in_degree_days_dd;		 	
+			 }
+		}
+	}
+	
+	void calcSinkStrengthAboveground(){
+	
+		sink_strength_per_day_mg			=	0; //Sink strenght of the enitre truss. Reset to zero every time the calculation is done		
+		
+		for(int j = 0; j < degreeDaysStorage.length; j++) {
+			if(degreeDaysStorage[j] != 0 && degreeDaysStorage[j] <= growth_duration_dd) {			
+				sink_strength_per_day_mgStorage[j] = (dry_biomass_potential_max_mg *(1+((growth_duration_dd-degreeDaysStorage[j])/(growth_duration_dd-age_maximum_growth_dd)))*Math.pow((degreeDaysStorage[j]/growth_duration_dd),(growth_duration_dd/(growth_duration_dd-age_maximum_growth_dd))) - 			dry_biomass_potential_max_mg *(1+((growth_duration_dd-degreeDaysStoragePreviousDay[j])/(growth_duration_dd-age_maximum_growth_dd)))*Math.pow((degreeDaysStoragePreviousDay[j]/growth_duration_dd),(growth_duration_dd/(growth_duration_dd-age_maximum_growth_dd))))*dry_biomass_growth_respiration;						
+		
+			}else{
+				sink_strength_per_day_mgStorage[j]	=	0;	
+			}
+		}
+		sink_strength_per_day_mg =sumArray(sink_strength_per_day_mgStorage);
+	}
+
+	void mtg_constructor(){}
+		
+	void calcDimensions(){       
+
+		for(int j = 0; j < degreeDaysStorage.length; j++) {
+			
+			if(sink_strength_per_day_mgStorage[j]>0) {			
+				
+				fruit_relative_dry_biomass_growth_mg			=	sink_strength_per_day_mgStorage[j]/sink_strength_per_day_mg;				
+				
+				fruit_dry_biomass_buffer_usable_mg [j]			= 	(fruit_dry_biomass_structural_and_min_pool_mg[j] / dry_biomass_structural_and_min_pool_mg)*dry_biomass_buffer_usable_mg;	
+						
+				fruit_dry_biomass_structural_and_min_pool_mg[j]	+=	dry_biomass_growth_mg*fruit_relative_dry_biomass_growth_mg;				
+							
+				fruit_dry_biomass_mg[j]							=	fruit_dry_biomass_structural_and_min_pool_mg[j] + fruit_dry_biomass_buffer_usable_mg[j];
+				
+				fruit_fresh_biomass_mg[j]						=	fruit_dry_biomass_mg[j]*10.51+0.29;
+			
+				fruitRadius[j] 									=	(((DRY_WEIGHT_TO_BIOMASS_FACOTR_1* Math.pow(fruit_dry_biomass_structural_and_min_pool_mg[j],DRY_WEIGHT_TO_BIOMASS_FACOTR_2))/1000)/2)*   SA_factor_fruitDiameter; 			
+				
+				if (degreeDaysStorage[j] != 0 || (j!= degreeDaysStorage.length-1)){area_internode_fruit[j]=(2 * Math.PI * 0.5*internodeTrussdiameter * INTERNODETRUSSLENGTH);};
+				
+				if (degreeDaysStorage[j] != 0){area_petiole_fruit[j]=(2 * Math.PI * 0.5*internodeTrussdiameter * PETIOLELENGTH);};
+				
+				if (degreeDaysStorage[j] < Ripening_dd){surface_area_green_tomatoes[j] = 3.14285714286 *4 * Math.pow(fruitRadius[j],2);}else{surface_area_green_tomatoes[j]=0;};
+				
+				}else if (RED_TOMATOES_REMOVED && degreeDaysStorage[j] >= Ripening_dd+100){
+				
+				fruit_dry_biomass_buffer_harvested_mg[j]		+=	fruit_dry_biomass_buffer_usable_mg[j];
+				
+				fruit_dry_biomass_buffer_usable_mg[j]			=	0;
+				
+				fruit_dry_biomass_structural_and_min_pool_harvested_mg[j]	+=	fruit_dry_biomass_structural_and_min_pool_mg[j];
+				
+				fruit_dry_biomass_structural_and_min_pool_mg[j]	=	0;	
+				
+				fruit_dry_biomass_harvested_mg[j]				+=	fruit_dry_biomass_mg[j];
+				
+				fruit_dry_biomass_mg[j]							=	0;
+				
+				fruit_fresh_biomass_harvested_mg[j]			+=	fruit_fresh_biomass_mg[j];
+				
+				fruit_fresh_biomass_mg[j]						=	0;
+				
+				fruitRadius[j] 									=	0; 			
+				
+				if (degreeDaysStorage[j] != 0 || (j!= degreeDaysStorage.length-1)){area_internode_fruit[j]=(2 * Math.PI * 0.5*internodeTrussdiameter * INTERNODETRUSSLENGTH);};
+				
+				if (degreeDaysStorage[j] != 0){area_petiole_fruit[j]=(2 * Math.PI * 0.5*internodeTrussdiameter * PETIOLELENGTH);};
+				
+				if (degreeDaysStorage[j] < Ripening_dd){surface_area_green_tomatoes[j] = 3.14285714286 *4 * Math.pow(fruitRadius[j],2);}else{surface_area_green_tomatoes[j]=0;};								
+			}
+			
+			
+
+
+			
+	
+		}	
+		
+		string_array_fruit_dry_biomass_mg = floatArrayToString(fruit_dry_biomass_mg);
+		string_array_fruit_age_mg = floatArrayToString(degreeDaysStorage);
+
+		area_m2						=	sumArray(surface_area_green_tomatoes) + sumArray(area_internode_fruit) +sumArray(area_petiole_fruit);
+			
+			buffer_harvested_mg 	=	sumArray(fruit_dry_biomass_buffer_harvested_mg);	
+			
+			dry_biomass_structural_and_min_pool_harvested_mg 	=	sumArray(fruit_dry_biomass_structural_and_min_pool_harvested_mg);	
+
+			fresh_biomass_mg			=	sumArray(fruit_fresh_biomass_mg);					
+			
+			fresh_biomass_harvested_mg	=	sumArray(fruit_fresh_biomass_harvested_mg);
+			
+			dry_biomass_harvested_mg 	=	sumArray(fruit_dry_biomass_harvested_mg);	
+	}					
+
+	
+	void update_fruit_biomass_because_harvest(){
+		dry_biomass_structural_and_min_pool_mg		=	dry_biomass_structural_and_min_pool_mg ;//- dry_biomass_structural_and_min_pool_harvested_mg;
+		dry_biomass_buffer_mg						=	dry_biomass_buffer_usable_mg - buffer_harvested_mg;
+		dry_biomass_mg								=	dry_biomass_structural_and_min_pool_mg - dry_biomass_harvested_mg;				 
+
+	
+	}
+} ==> RL(45)
+[
+	Cylinder(INTERNODETRUSSLENGTH,internodeTrussdiameter).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,topShader)))
+	[ 
+		RU(-90) /*RG*/ RL(angleAmongSubsequentFruits)  Cylinder(PETIOLELENGTH,internodeTrussdiameter).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,topShader)))
+		if (degreeDaysStorage[0] < Ripening_dd)(M (fruitRadius[0]) Sphere(fruitRadius[0]).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,fruitUnripenShader))))
+		else if (degreeDaysStorage[0] >= Ripening_dd)(M (fruitRadius[0]) Sphere(fruitRadius[0]).(setShader(new AlgorithmSwitchShader(RED,RIPE_TOMATO_RENDERING_SHADER,fruitRipenShader))))	
+	]
+			
+	if(!fruitPairing)(
+		for (int j:1:fruitNr-2)(
+			if (degreeDaysStorage[j] != 0)(
+				RL(internodeTrussAngle)  Cylinder(INTERNODETRUSSLENGTH,internodeTrussdiameter).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,topShader)))				
+				[ 
+					if ( j % 2 == 0 )(RU(-90))else(	RU(+90))
+					RL(angleAmongSubsequentFruits) Cylinder(PETIOLELENGTH,internodeTrussdiameter).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,topShader)))
+					if (degreeDaysStorage[j] < Ripening_dd)(M (fruitRadius[j]) Sphere(fruitRadius[j]).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,fruitUnripenShader))))
+					else if (degreeDaysStorage[j] >= Ripening_dd)(M (fruitRadius[j]) Sphere(fruitRadius[j]).(setShader(new AlgorithmSwitchShader(RED,RIPE_TOMATO_RENDERING_SHADER,fruitRipenShader))))		
+				]
+			)
+		)
+		if (degreeDaysStorage[fruitNr-1] != 0)(
+			RL(internodeTrussAngle) [Cylinder(PETIOLELENGTH,internodeTrussdiameter) .(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,topShader)))
+			if (degreeDaysStorage[fruitNr-1] < Ripening_dd)(M (fruitRadius[fruitNr-1]) Sphere(fruitRadius[fruitNr-1]).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,fruitUnripenShader))))
+			else if (degreeDaysStorage[fruitNr-1] >= Ripening_dd)(M (fruitRadius[fruitNr-1]) Sphere(fruitRadius[fruitNr-1]).(setShader(new AlgorithmSwitchShader(RED,RIPE_TOMATO_RENDERING_SHADER,fruitRipenShader))))
+			]
+			
+		)
+	)else (
+		for (int j:1:fruitNr-2) (								 
+				if ( j % 2 == 0 )(
+					if (degreeDaysStorage[j] != 0)(
+						RL(internodeTrussAngle) Cylinder(INTERNODETRUSSLENGTH,internodeTrussdiameter).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,topShader)))
+						[
+							RU(-90)
+							RL(angleAmongSubsequentFruits) Cylinder(PETIOLELENGTH,internodeTrussdiameter).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,topShader)))	
+							if (degreeDaysStorage[j] < Ripening_dd)(M (fruitRadius[j]) Sphere(fruitRadius[j]).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,fruitUnripenShader))))
+							else if (degreeDaysStorage[j] >= Ripening_dd)(M (fruitRadius[j]) Sphere(fruitRadius[j]).(setShader(new AlgorithmSwitchShader(RED,RIPE_TOMATO_RENDERING_SHADER,fruitRipenShader))))			
+						]
+					)
+				)else(
+					[
+						if (degreeDaysStorage[j] != 0)(
+							RU(+90)
+							RL(angleAmongSubsequentFruits) Cylinder(PETIOLELENGTH,internodeTrussdiameter).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,topShader)))  
+							if (degreeDaysStorage[j] < Ripening_dd)(M (fruitRadius[j]) Sphere(fruitRadius[j]).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,fruitUnripenShader))))
+							else if (degreeDaysStorage[j] >= Ripening_dd)(M (fruitRadius[j]) Sphere(fruitRadius[j]).(setShader(new AlgorithmSwitchShader(RED,RIPE_TOMATO_RENDERING_SHADER,fruitRipenShader))))		
+						)
+					]
+				)	
+			)
+			if (degreeDaysStorage[fruitNr-1] != 0)(
+				RL(internodeTrussAngle)
+				[
+					Cylinder(PETIOLELENGTH,internodeTrussdiameter).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,topShader)))
+					if (degreeDaysStorage[fruitNr-1] < Ripening_dd)(M (fruitRadius[fruitNr-1]) Sphere(fruitRadius[fruitNr-1]).(setShader(new AlgorithmSwitchShader(GREEN,PLANT_RENDERING_SHADER,fruitUnripenShader))))
+						else if (degreeDaysStorage[fruitNr-1] >= Ripening_dd)(M (fruitRadius[fruitNr-1]) Sphere(fruitRadius[fruitNr-1]).(setShader(new AlgorithmSwitchShader(RED,RIPE_TOMATO_RENDERING_SHADER,fruitRipenShader))))
+				]
+			)			
+		)	
+];

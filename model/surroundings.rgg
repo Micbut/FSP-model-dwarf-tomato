@@ -1,0 +1,307 @@
+import static parameters.*;
+import static parameters_derived.*;
+import static light.*;
+import static parameters.*;
+import static plant_level.*;
+import static crop_level.*;
+import static parameters_derived.*;
+import static light.*;
+import static auxiliary_tools_and_charts.*;
+import static photosynthesis.*;
+import static MTG_importer.*;
+
+import de.grogra.gpuflux.imp3d.spectral.IrregularSpectralCurve;		//This before was  de.grogra.imp3d.spectral.IrregularSpectralCurve, but the developer changed it
+import de.grogra.gpuflux.imp3d.shading.ChannelSPD;
+import de.grogra.gpuflux.scene.experiment.Measurement;
+/******************************************************************************
+Shaders of Elements of the scene
+*******************************************************************************/
+/*GENERIC OBJECT*/
+const ChannelSPD cube_SPD = new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, CUBE_SPD));
+const ChannelSPD cube_SPT = new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, CUBE_SPT));
+
+const Phong cube_Shader = new Phong();
+
+static {
+    cube_Shader.setDiffuse(cube_SPD);
+	cube_Shader.setDiffuseTransparency(cube_SPT);
+}
+
+const ChannelSPD wall_SPD = new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, WALL_SPD));
+const ChannelSPD wall_SPT = new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, WALL_SPT));
+
+const Phong wall_Shader = new Phong();
+
+static {
+    wall_Shader.setDiffuse(wall_SPD);
+	wall_Shader.setDiffuseTransparency(wall_SPT);
+}
+
+
+const ChannelSPD floor_SPD = new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, FLOOR_SPD));
+const ChannelSPD floor_SPT = new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, FLOOR_SPT));
+
+const Phong floor_Shader = new Phong();
+
+static {
+    floor_Shader.setDiffuse(floor_SPD);
+	floor_Shader.setDiffuseTransparency(floor_SPT);
+}
+
+
+/*ceiling*/
+const ChannelSPD ceilingSPD = new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, CEILING_SPD));
+const ChannelSPD ceilingSPT = new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, CEILING_SPT));
+
+const Phong ceilingShader = new Phong();
+
+static {
+    ceilingShader.setDiffuse(ceilingSPD);
+	ceilingShader.setDiffuseTransparency(ceilingSPT);
+}
+
+
+/*tile  WITH 2 SIDES*/
+//top
+const ChannelSPD tileTopSPD = new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, TILE_SENSOR_TOP_SPD));
+const ChannelSPD tileTopSPT = new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, TILE_SENSOR_TOP_SPT));
+
+const Phong tileTopShader = new Phong();
+
+static {
+    tileTopShader.setDiffuse(tileTopSPD);
+	tileTopShader.setDiffuseTransparency(tileTopSPT);
+}
+	 
+//Bottom
+const ChannelSPD tileBottomSPD = new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, TILE_SENSOR_TOP_SPD));
+const ChannelSPD tileBottomSPT = new ChannelSPD(new IrregularSpectralCurve(WAVELENGTHS, TILE_SENSOR_TOP_SPT));
+
+const Phong tileBottomShader = new Phong();
+
+static {
+	tileTopShader.setDiffuse(tileBottomSPD);
+	tileBottomShader.setDiffuseTransparency(tileBottomSPT);
+}
+
+// distinctive upper (adaxial) and lower (abaxial) surfaces
+static SideSwitchShader tileBothSideShader = new SideSwitchShader(tileTopShader, tileBottomShader);
+
+static Phong FLOOR_RENDERING_SHADER = new Phong().(setDiffuse(new RGBColor(1, 1, 1)));
+
+
+/******************************************************************************
+Room construction
+*******************************************************************************/
+
+// Floor
+module RoomFloor() ==> [
+RL(-90) RH Translate(WIDTH/2,0,0) Parallelogram(LENGTH1, WIDTH).(setShader(new AlgorithmSwitchShader( WHITE, FLOOR_RENDERING_SHADER , floor_Shader )))
+];
+
+//Ceiling
+module Ceiling()==> [M(HEIGHT) RL(-90) Translate(WIDTH/2,0,0) Parallelogram(LENGTH1, WIDTH).(setShader(new AlgorithmSwitchShader( WHITE, FLOOR_RENDERING_SHADER , ceilingShader )))]
+;
+
+//Wall 
+module Walls() ==> [	
+[
+	RU(-90) Translate(HEIGHT/2,0,-WIDTH) Parallelogram(WIDTH, HEIGHT).(setShader(new AlgorithmSwitchShader( WHITE, FLOOR_RENDERING_SHADER , wall_Shader )))
+]
+
+[
+	RU(-90) Translate(HEIGHT/2,LENGTH1,-WIDTH) Parallelogram(WIDTH, HEIGHT).(setShader(new AlgorithmSwitchShader( WHITE, FLOOR_RENDERING_SHADER , wall_Shader )))
+]
+
+[
+	RU(90)RL(90)Translate(-HEIGHT/2,0,-LENGTH1) Parallelogram(LENGTH1, HEIGHT).(setShader(new AlgorithmSwitchShader( WHITE, FLOOR_RENDERING_SHADER , wall_Shader )))
+]
+
+[
+	RU(90)RL(90)Translate(-HEIGHT/2,WIDTH,-LENGTH1) Parallelogram(LENGTH1, HEIGHT).(setShader(new AlgorithmSwitchShader( WHITE, FLOOR_RENDERING_SHADER , wall_Shader )))
+]
+];
+
+//Rockwool block
+
+module RockwoolBlock() ==> [
+	Parallelogram(ROCKWOOL_HEIGHT,ROCKWOOL_WIDTH_LENGTH).(setShader(new AlgorithmSwitchShader( BLACK, FLOOR_RENDERING_SHADER , cube_Shader )))
+	RL(90)Parallelogram(ROCKWOOL_WIDTH_LENGTH,ROCKWOOL_WIDTH_LENGTH).(setShader(new AlgorithmSwitchShader( YELLOW, FLOOR_RENDERING_SHADER , cube_Shader )))
+	RL(90)Parallelogram(ROCKWOOL_HEIGHT,ROCKWOOL_WIDTH_LENGTH).(setShader(new AlgorithmSwitchShader( BLACK, FLOOR_RENDERING_SHADER , cube_Shader )))
+	RL(90)Parallelogram(ROCKWOOL_WIDTH_LENGTH,ROCKWOOL_WIDTH_LENGTH).(setShader(new AlgorithmSwitchShader( BLACK, FLOOR_RENDERING_SHADER , cube_Shader )))
+	RH(90)Translate(-ROCKWOOL_HEIGHT/2,-ROCKWOOL_WIDTH_LENGTH/2,-ROCKWOOL_WIDTH_LENGTH)	Parallelogram(ROCKWOOL_WIDTH_LENGTH,ROCKWOOL_HEIGHT).(setShader(new AlgorithmSwitchShader( BLACK, FLOOR_RENDERING_SHADER , cube_Shader )))
+	Translate(0,ROCKWOOL_WIDTH_LENGTH,-ROCKWOOL_WIDTH_LENGTH)	Parallelogram(ROCKWOOL_WIDTH_LENGTH,ROCKWOOL_HEIGHT).(setShader(new AlgorithmSwitchShader( BLACK, FLOOR_RENDERING_SHADER , cube_Shader )))
+];
+
+module RockwoolBlockCloned() ==> [
+	Parallelogram(ROCKWOOL_HEIGHT,ROCKWOOL_WIDTH_LENGTH).(setShader(new AlgorithmSwitchShader( BLACK, FLOOR_RENDERING_SHADER , cube_Shader )))
+	RL(90)Parallelogram(ROCKWOOL_WIDTH_LENGTH,ROCKWOOL_WIDTH_LENGTH).(setShader(new AlgorithmSwitchShader( RED, FLOOR_RENDERING_SHADER , cube_Shader )))
+	RL(90)Parallelogram(ROCKWOOL_HEIGHT,ROCKWOOL_WIDTH_LENGTH).(setShader(new AlgorithmSwitchShader( BLACK, FLOOR_RENDERING_SHADER , cube_Shader )))
+	RL(90)Parallelogram(ROCKWOOL_WIDTH_LENGTH,ROCKWOOL_WIDTH_LENGTH).(setShader(new AlgorithmSwitchShader( BLACK, FLOOR_RENDERING_SHADER , cube_Shader )))
+	RH(90)Translate(-ROCKWOOL_HEIGHT/2,-ROCKWOOL_WIDTH_LENGTH/2,-ROCKWOOL_WIDTH_LENGTH)	Parallelogram(ROCKWOOL_WIDTH_LENGTH,ROCKWOOL_HEIGHT).(setShader(new AlgorithmSwitchShader( BLACK, FLOOR_RENDERING_SHADER , cube_Shader )))
+	Translate(0,ROCKWOOL_WIDTH_LENGTH,-ROCKWOOL_WIDTH_LENGTH)	Parallelogram(ROCKWOOL_WIDTH_LENGTH,ROCKWOOL_HEIGHT).(setShader(new AlgorithmSwitchShader( BLACK, FLOOR_RENDERING_SHADER , cube_Shader )))
+];
+
+/******************************************************************************
+Light Hardware Construction 
+******************************************************************************/
+
+// Lamp cover box
+module lampCoverBox() ==> [  
+//Box(LED_FIXTURE_LENGTH,LAMP_COVER_WIDTH,LAMP_COVER_HEIGHT).(setShader(new AlgorithmSwitchShader( WHITE, FLOOR_RENDERING_SHADER , ceilingShader )))
+];
+
+//
+
+//
+module GridLamp()==>[
+Translate( WIDTH/2 - DISTANCE_BETWEEN_LAMPS*(NR_LAMPS-1)/2,0,0+HEIGHT-LAMP_COVER_HEIGHT/2)
+RL(-90)
+for(int j = 1; j <= (NR_LAMPS) ; j++) (
+
+	[lampCoverBox
+		RL(90)Translate(0,LENGTH1/2 - LED_SPOT_DISTANCE*(NR_SPOT-1)/2,-LAMP_COVER_HEIGHT/2)
+		for(int jj = 1; jj <= NR_SPOT ; jj++)(
+//			if(jj ==1 || jj==NR_SPOT || j ==1 || j==NR_LAMPS)([RG RedBlueLED])
+			[RG RedBlueLED //Sphere(0.03).(setShader(new AlgorithmSwitchShader( WHITE, FLOOR_RENDERING_SHADER , cube_Shader )))
+			]
+			Translate(0,LED_SPOT_DISTANCE,0)
+	)]	
+	Translate(DISTANCE_BETWEEN_LAMPS,0,0)
+)
+];
+
+
+// general tile sensor
+module TileSensor extends M {
+	CropBase cb;
+	double length;
+	double width;
+	double area_m2;
+	double absorbedPARTile;			// absorbed radiation (umol / s)
+	double absorbedPARTilem2;		// absorbed radiation per unit area_m2_m2_m2 (umol / m2 / s)
+
+	int nr;
+	float x;
+	float y;
+	float z;
+	
+	void initiate(int j, float x, float y, float z, CropBase cb) {
+		this.cb				=	cb;
+		nr					=	j;
+		this.x				=	x;
+		this.y				=	y;
+		this.z				=	z;
+		length				=	T_SIZE_Y;
+		width				=	T_SIZE_X;
+		area_m2				=	length*width;
+		absorbedPARTile 	=	0;
+		absorbedPARTilem2	=	0;
+	}
+	
+	void calcLight()
+	{
+		if (area_m2 > 0) {
+			Measurement spectrum	=	lmGPU.getAbsorbedPowerMeasurement(this);
+			//Add up how much PAR was Absorbed
+			for( int i = 0; i<=60; i++){
+				absorbedPARTile	=	absorbedPARTile + spectrum.data[i];
+			}
+			absorbedPARTilem2 = absorbedPARTile / area_m2 ;
+		}
+	}
+}==> RL(-90) Translate(width/2,0,0) RL(180) Parallelogram(length,width).(setLayer(TILE_LAYER),setShader(new AlgorithmSwitchShader(GREEN, new RGBAShader(0.6, 0.3, 0.1),tileBothSideShader)));
+
+// LIGHT SENSOR AS A bodyless sphere -DOESN'T WORK YET
+module LightSensor extends SensorNode().(setRadius(0.01), setColor(1,1,1)) {
+	double absorbedPARSensor;				
+	double area_m2;
+	
+	int nr;
+	float x;
+	float y;
+	float z;
+	
+	// initiation of the sensor
+	void initiate(int j, float x, float y, float z) {
+		nr = j;
+		this.x = x;
+		this.y = y;
+		this.z = z;
+	}	
+
+	 	void calcLight()
+	{
+	//	if (area_m2_m2_m2 > 0) {
+			Measurement spectrum	=	lmGPU.getSensedIrradianceMeasurement(this);
+			//absorbedPARSensor	= spectrum.integrate();
+			//Add up how much PAR was Absorbed
+			for( int i = 0; i<=60; i++){
+				absorbedPARSensor	=	absorbedPARSensor + spectrum.data[i];
+		//	}
+		}
+		
+		
+	}
+}
+
+// general tile sensor
+module TileSensor2 extends Null
+{
+	double length;
+	double width;
+	double area;
+	double absorbedPARTile;			// absorbed radiation (umol / s)
+	double absorbedPARTilem2;		// absorbed radiation per unit area (umol / m2 / s)
+
+	int nr;
+	float x;
+	float y;
+	float z;
+	double clear;
+	
+	void initiate(int j, float x, float y, float z) {
+		nr = j;
+		this.x = x;
+		this.y = y;
+		this.z = z;
+		length = T_SIZE_Y;
+		width = T_SIZE_X;
+		area = length*width;
+		absorbedPARTile = 0;
+		absorbedPARTilem2 = 0;
+
+
+	}
+	
+	void calcLight()
+	{
+		if (area > 0) {
+			Measurement spectrum	=	lmGPU.getAbsorbedPowerMeasurement(this);
+			//Add up how much PAR was Absorbed
+			for( int i = 0; i<=60; i++){
+				absorbedPARTile	=	absorbedPARTile + spectrum.data[i];
+			}
+			absorbedPARTilem2 = absorbedPARTile / area ;
+			 clear=(280- absorbedPARTilem2)/40;
+				//println("absorbedPARTile "+absorbedPARTilem2);
+				//println("test "+clear);
+
+		}
+}
+
+}==> RL(-90)
+Translate(width/2,0,0) RL(180)
+Parallelogram(length, width).(setLayer(TILE_LAYER),setShader(new AlgorithmSwitchShader(new RGBAShader(
+  clear,  
+  clear,
+    clear 
+), new RGBAShader(
+   Math.max(0, Math.min(1, (absorbedPARTile - 220) / 20)),  
+   Math.max(0, Math.min(1, (260 - Math.abs(absorbedPARTile - 240)) / 20)),
+   Math.max(0, Math.min(1, (250 - absorbedPARTile) / 20))   
+), tileBothSideShader)))
+;
+
+
+

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?><graph xmlns="http://grogra.de/xmlpersistence" xmlns:gx="http://grogra.de/xmlpersistence">
+ <node root="MainGraph" id="562949953422961" type="de.grogra.graph.impl.Node">
+  <node id="562949953422962" type="de.grogra.rgg.RGGRoot" edges="+"/>
+ </node>
+</graph>
